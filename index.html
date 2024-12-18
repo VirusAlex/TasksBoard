@@ -455,7 +455,59 @@
   .form-group textarea {
     height: 100px;
     min-height: 150px;
+    resize: none;  /* Разрешаем растягивать только по вертикали */
+    max-height: 500px; /* Ограничиваем максимальную высоту */
   }
+
+  /* Стили для контейнера с нумерацией строк */
+  .description-container {
+    display: flex;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 6px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    line-height: 1.5;
+    margin-top: 8px;
+    min-height: 150px;
+    height: auto;
+    max-height: 500px; /* Добавляем максимальную высоту */
+    overflow: hidden;
+  }
+
+  .line-numbers {
+    padding: 12px 8px;
+    border-right: 1px solid rgba(0,0,0,0.1);
+    background: rgba(0,0,0,0.02);
+    text-align: right;
+    color: #666;
+    user-select: none;
+    min-width: 40px;
+    white-space: pre;
+    overflow-y: hidden; /* Убираем скролл у номеров */
+  }
+
+  .dark-theme .line-numbers {
+    background: rgba(255,255,255,0.05);
+    border-right-color: rgba(255,255,255,0.1);
+    color: #bdc3c7;
+  }
+
+  .description-container textarea {
+    flex: 1;
+    border: none !important;
+    border-radius: 0 6px 6px 0 !important;
+    margin: 0 !important;
+    font-family: inherit;
+    line-height: inherit;
+    resize: none;
+    padding: 12px;
+    height: auto !important; /* Меняем на 100% */
+    overflow-y: auto; /* Меняем на auto */
+  }
+
+  .dark-theme .description-container {
+    border-color: rgba(255,255,255,0.2);
+  }
+
   .dialog-buttons {
     display: flex;
     justify-content: space-between;
@@ -1162,7 +1214,10 @@
           <div class="description-controls">
             <button type="button" class="icon-button" onclick="insertLink()" title="Вставить ссылку">🔗</button>
           </div>
-          <textarea id="task-description" rows="3"></textarea>
+          <div class="description-container">
+            <div class="line-numbers"></div>
+            <textarea id="task-description" rows="3"></textarea>
+          </div>
         </div>
 
         <div class="form-group checkbox">
@@ -1600,6 +1655,25 @@
     const form = dialog.querySelector('form');
     const titleInput = document.getElementById('task-title');
     const descriptionInput = document.getElementById('task-description');
+
+    descriptionInput.addEventListener('input', updateLineNumbers);
+    descriptionInput.addEventListener('scroll', () => {
+      const lineNumbers = descriptionInput.closest('.description-container').querySelector('.line-numbers');
+      lineNumbers.scrollTop = descriptionInput.scrollTop;
+    });
+
+    // Вызываем updateLineNumbers при открытии диалога
+    setTimeout(updateLineNumbers, 0);
+
+    // Добавляем очистку обработчиков при закрытии диалога
+    dialog.addEventListener('close', () => {
+      descriptionInput.removeEventListener('input', updateLineNumbers);
+      descriptionInput.removeEventListener('scroll', () => {});
+      resizeObserver.disconnect();
+    }, { once: true });
+
+
+
     const repeatCheckbox = document.getElementById('task-repeat');
     const infoCheckbox = document.getElementById('task-info'); // Добавляем эту строку
     const resetTimeInput = document.getElementById('reset-time');
@@ -1824,6 +1898,12 @@
     };
 
     dialog.showModal();
+
+    // В функции openTaskDialog добавляем:
+    const resizeObserver = new ResizeObserver(() => {
+      updateLineNumbers();
+    });
+    resizeObserver.observe(descriptionInput);
   }
 
   // Функция для форматирования оставшегося времени
@@ -2921,6 +3001,57 @@
     const b = parseInt(hex.substring(4, 6), 16);
     
     return { r, g, b };
+  }
+
+  function updateLineNumbers() {
+    const textarea = document.getElementById('task-description');
+    const lineNumbers = textarea.closest('.description-container').querySelector('.line-numbers');
+    
+    // Разбиваем текст на строки по реальным переносам
+    const lines = textarea.value.split('\n');
+    
+    // Создаем массив номеров, где для каждой строки считаем её визуальную высоту
+    const numbers = [];
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = `
+      position: absolute;
+      visibility: hidden;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      width: ${textarea.clientWidth}px;
+      font-family: ${getComputedStyle(textarea).fontFamily};
+      font-size: ${getComputedStyle(textarea).fontSize};
+      line-height: ${getComputedStyle(textarea).lineHeight};
+      padding: ${getComputedStyle(textarea).padding};
+    `;
+    document.body.appendChild(tempDiv);
+
+    let lineNumber = 1;
+    lines.forEach(line => {
+      // Считаем, сколько визуальных строк занимает текущая строка
+      tempDiv.textContent = line;
+      const lineHeight = parseInt(getComputedStyle(textarea).lineHeight);
+      const visualLines = Math.ceil(tempDiv.clientHeight / lineHeight);
+      
+      // Добавляем номер только для первой визуальной строки
+      numbers.push(lineNumber);
+      // Для остальных визуальных строк добавляем пустые строки
+      for (let i = 2; i < visualLines; i++) {
+        numbers.push('');
+      }
+      lineNumber++;
+    });
+
+    document.body.removeChild(tempDiv);
+    
+    // Обновляем содержимое
+    lineNumbers.textContent = numbers.join('\n');
+    
+    // Синхронизируем высоту
+    //lineNumbers.style.height = `${textarea.scrollHeight}px`;
+    
+    // Синхронизируем скролл
+    lineNumbers.scrollTop = textarea.scrollTop;
   }
 
 </script>
