@@ -1134,44 +1134,7 @@
     if (!draggingCol) return;
     e.preventDefault();
     e.stopPropagation();
-
-    // Удаляем все индикаторы
-    document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
-
-    const columns = Array.from(document.querySelectorAll('.column'));
-    
-    // Если курсор между колонками
-    const indicator = document.createElement('div');
-    indicator.className = 'column-drop-indicator';
-    
-    // Находим ближайшую колонку к курсору
-    const mouseX = e.clientX;
-    let closestColumn = null;
-    let minDistance = Infinity;
-    
-    columns.forEach(col => {
-      if (col === draggingCol) return;
-
-      const rect = col.getBoundingClientRect();
-      const colMiddle = rect.left + rect.width / 2;
-      const distance = Math.abs(mouseX - colMiddle);
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestColumn = col;
-      }
-    });
-
-    if (closestColumn) {
-      const rect = closestColumn.getBoundingClientRect();
-      if (mouseX < rect.left + rect.width / 2) {
-        columnsEl.insertBefore(indicator, closestColumn);
-      } else {
-        columnsEl.insertBefore(indicator, closestColumn.nextSibling);
-      }
-    } else {
-      columnsEl.appendChild(indicator);
-    }
+    showColumnDropIndicator(e, draggingCol);
   });
 
   columnsEl.addEventListener('drop', (e) => {
@@ -1290,8 +1253,7 @@
 
       colEl.addEventListener('dragend', () => {
         colEl.classList.remove('dragging');
-        // Удаляем все индикаторы
-        document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
+        removeAllDropIndicators();
       });
       
       // ================================
@@ -1302,74 +1264,13 @@
         const draggingTask = document.querySelector('.task.dragging');
         const draggingCol = document.querySelector('.column.dragging');
         if (!draggingTask && !draggingCol) return;
-
-        e.preventDefault();
-        e.stopPropagation();
         
         if (draggingTask) {
-          // Удаляем существующие индикаторы
-          document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
-          document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
-          
-          // Создаем новый индикатор
-          const indicator = document.createElement('div');
-          indicator.className = 'task-drop-indicator';
-          
-          // Получаем все задачи верхнего уровня в колонке
-          const tasks = Array.from(colEl.querySelectorAll('.task:not(.subtask)'));
-          const addTaskBtn = colEl.querySelector('.add-btn');
-          
-          // Если нет задач, просто добавляем индикатор перед кнопкой
-          if (tasks.length === 0) {
-            // Если задач нет, добавляем индикатор перед кнопкой добавления
-            colEl.insertBefore(indicator, addTaskBtn);
-            return;
-          }
-          
-          // Находим ближайшую задачу к курсору
-          const mouseY = e.clientY;
-          let closestTask = null;
-          let minDistance = Infinity;
-          
-          tasks.forEach(task => {
-            const rect = task.getBoundingClientRect();
-            const taskMiddle = rect.top + rect.height / 2;
-            const distance = Math.abs(mouseY - taskMiddle);
-            
-            if (distance < minDistance) {
-              minDistance = distance;
-              closestTask = task;
-            }
-          });
-          
-          if (closestTask) {
-            const rect = closestTask.getBoundingClientRect();
-            if (mouseY < rect.top + rect.height / 2) {
-              colEl.insertBefore(indicator, closestTask);
-            } else {
-              colEl.insertBefore(indicator, closestTask.nextSibling);
-            }
-          } else {
-            colEl.insertBefore(indicator, addTaskBtn);
-          }
+          showTaskDropIndicator(e, colEl, draggingTask);
         } else {
           // Если перетаскиваем колонку
           if (draggingCol === colEl) return;
-
-          // Удаляем существующие индикаторы
-          document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
-
-          const indicator = document.createElement('div');
-          indicator.className = 'column-drop-indicator';
-
-          const rect = colEl.getBoundingClientRect();
-          const mouseX = e.clientX - rect.left;
-
-          if (mouseX < rect.width / 2) {
-            colEl.parentNode.insertBefore(indicator, colEl);
-          } else {
-            colEl.parentNode.insertBefore(indicator, colEl.nextSibling);
-          }
+          showColumnDropIndicator(e, draggingCol);
         }
       });
 
@@ -2015,21 +1916,6 @@
       // Сохраняем новый интервал
       const intervalId = setInterval(updateTime, 1000);
       resetTimeIntervals.set(task.id, intervalId);
-
-      // Добавляем очистку при удалении элемента
-      const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-              mutation.removedNodes.forEach((node) => {
-                  if (node === resetInfo || node.contains(resetInfo)) {
-                      clearInterval(intervalId);
-                      resetTimeIntervals.delete(task.id);
-                      observer.disconnect();
-                  }
-              });
-          });
-      });
-      
-      observer.observe(resetInfo.parentNode, { childList: true, subtree: true });
       
       timeIndicators.appendChild(resetInfo);
     }
@@ -2365,81 +2251,14 @@
     taskEl.addEventListener('dragend', (e) => {
       e.stopPropagation();
       taskEl.classList.remove('dragging');
-      // Удаляем все индикаторы
-      document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
-      document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
+      removeAllDropIndicators();
     });
 
     // Обработчик dragover с логикой третей
     taskEl.addEventListener('dragover', (e) => {
       const draggingTask = document.querySelector('.task.dragging');
       if (!draggingTask) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-      if (draggingTask === taskEl) return;
-      
-      const taskRect = taskEl.getBoundingClientRect();
-      const partHeight = taskRect.height / 4;
-      const mouseY = e.clientY - taskRect.top;
-      
-      // Удаляем все индикаторы
-      document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
-      document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
-      
-      const subtasksContainer = taskEl.querySelector('.subtasks-container');
-      // Проверяем, если есть контейнер сабтасков - находимся ли мы над ним
-      let aboveSubtasksContainer = false;
-      if (subtasksContainer) {
-        const subtasksContainerRect = subtasksContainer.getBoundingClientRect();
-        if (e.clientY > subtasksContainerRect.top && e.clientY < subtasksContainerRect.bottom) {
-          aboveSubtasksContainer = true;
-        }
-      }
-      
-      if (subtasksContainer && aboveSubtasksContainer) {
-          // Вычисляем позицию вставки
-          const indicator = document.createElement('div');
-          indicator.className = 'task-drop-indicator';
-          // Вставляем индикатор в позицию под курсором
-          // Находим ближайшую задачу к курсору
-          let closestTask = null;
-          let minDistance = Infinity;
-
-          subtasksContainer.childNodes.forEach(node => {
-            if (node.nodeType === 1) { // Проверяем, что это элемент
-              const rect = node.getBoundingClientRect();
-              const distance = Math.abs(e.clientY - rect.top);
-              if (distance < minDistance) {
-                closestTask = node;
-                minDistance = distance;
-              }
-            }
-          });
-
-          if (closestTask) {
-            subtasksContainer.insertBefore(indicator, closestTask);
-          } else {
-            subtasksContainer.appendChild(indicator);
-          }
-      } else if (mouseY > partHeight && mouseY < (partHeight * 3)) { // Проверяем, находится ли курсор в центральной части
-          // Если у задачи еще нет сабтасков, показываем индикатор создания сабтаска
-          const indicator = document.createElement('div');
-          indicator.className = 'subtask-drop-indicator';
-          taskEl.appendChild(indicator);
-      } else {
-          // Обрабатываем обычное перемещение
-          // Создаем индикатор перемещения
-          const indicator = document.createElement('div');
-          indicator.className = 'task-drop-indicator';
-          
-          // Определяем, куда вставлять индикатор
-          if (mouseY < partHeight) {
-            taskEl.parentNode.insertBefore(indicator, taskEl);
-          } else {
-            taskEl.parentNode.insertBefore(indicator, taskEl.nextSibling);
-          }
-      }
+      showTaskDropIndicator(e, taskEl, draggingTask);
     });
 
     taskEl.addEventListener('drop', (e) => {
@@ -2574,7 +2393,7 @@
         let nextIndex = nextTask && nextTask.dataset ? tasks.findIndex(task => task.id === nextTask.dataset.taskId) : -1;
         let currentIndex = tasks.findIndex(task => task.id === draggingTask.dataset.taskId);
 
-        // Если индикатор находтся рядом с текущим таском, то не перемещаем
+        // Если индикатор находится рядом с текущим таском, то не перемещаем
         if ((nextIndex === currentIndex || prevIndex === currentIndex) && currentIndex !== -1) return;
 
         // учесть, если перетаскиваемый таск уже в этой колонке
@@ -2587,9 +2406,7 @@
       }
     } finally {
       isProcessingDrop = false;
-      // Удаляем все индикаторы
-      document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
-      document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
+      removeAllDropIndicators();
     }
   }
 
@@ -2605,7 +2422,7 @@
     try {
       const board = getSelectedBoard();
       const draggedColId = draggingCol.dataset.columnId;
-      const draggedColIndex = board.columns.findIndex(col => col.id === draggedColId);
+      const currentIndex = board.columns.findIndex(col => col.id === draggedColId);
 
       // Находим позицию для вставки
       const indicator = document.querySelector('.column-drop-indicator');
@@ -2615,22 +2432,179 @@
       const nextColIndex = nextCol ? board.columns.findIndex(col => col.id === nextCol.dataset.columnId) : -1;
       
       let finalIndex = nextCol ? nextColIndex : board.columns.length;
-      if (draggedColIndex !== -1) {
-        finalIndex = draggedColIndex < finalIndex ? finalIndex - 1 : finalIndex;
+      if (currentIndex !== -1) {
+        finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
       }
 
       // Перемещаем колонку в новую позицию
       if (finalIndex !== -1) {
-        const [movedColumn] = board.columns.splice(draggedColIndex, 1);
+        const [movedColumn] = board.columns.splice(currentIndex, 1);
         board.columns.splice(finalIndex, 0, movedColumn);
         saveData();
         render();
       }
     } finally {
       isProcessingDrop = false;
-      // Удаляем все индикаторы
-      document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
+      removeAllDropIndicators();
     }
+  }
+
+  function showColumnDropIndicator(e, draggingCol) {
+    e.preventDefault();
+    e.stopPropagation();
+    // Удаляем существующие индикаторы
+    removeAllDropIndicators();
+    
+    const indicator = document.createElement('div');
+    indicator.className = 'column-drop-indicator';
+    
+    // Находим ближайшую колонку к курсору
+    const columns = Array.from(document.querySelectorAll('.column'));
+    const mouseX = e.clientX;
+    let closestColumn = null;
+    let minDistance = Infinity;
+    
+    columns.forEach(col => {
+      if (col === draggingCol) return;
+      const rect = col.getBoundingClientRect();
+      const colMiddle = rect.left + rect.width / 2;
+      const distance = Math.abs(mouseX - colMiddle);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestColumn = col;
+      }
+    });
+    
+    if (closestColumn) {
+      const rect = closestColumn.getBoundingClientRect();
+      if (mouseX < rect.left + rect.width / 2) {
+        columnsEl.insertBefore(indicator, closestColumn);
+      } else {
+        columnsEl.insertBefore(indicator, closestColumn.nextSibling);
+      }
+    } else {
+      columnsEl.appendChild(indicator);
+    }
+  }
+
+  function showTaskDropIndicator(e, parentEl, draggingTask) {
+    if (parentEl === draggingTask) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Удаляем существующие индикаторы
+    removeAllDropIndicators();
+
+    const indicator = document.createElement('div');
+    indicator.className = 'task-drop-indicator';
+
+    // Если parentEl - таск
+    if (parentEl.classList.contains('task')) {
+      const taskEl = parentEl;
+
+      const taskRect = taskEl.getBoundingClientRect();
+      const partHeight = taskRect.height / 4;
+      const mouseY = e.clientY - taskRect.top;
+
+      const subtasksContainer = taskEl.querySelector('.subtasks-container');
+      // Проверяем, если есть контейнер сабтасков - находимся ли мы над ним
+      let aboveSubtasksContainer = false;
+      if (subtasksContainer) {
+        const subtasksContainerRect = subtasksContainer.getBoundingClientRect();
+        if (e.clientY > subtasksContainerRect.top && e.clientY < subtasksContainerRect.bottom) {
+          aboveSubtasksContainer = true;
+        }
+      }
+      if (subtasksContainer && aboveSubtasksContainer) {
+        // Вычисляем позицию вставки
+        const indicator = document.createElement('div');
+        indicator.className = 'task-drop-indicator';
+        // Вставляем индикатор в позицию под курсором
+        // Находим ближайшую задачу к курсору
+        let closestTask = null;
+        let minDistance = Infinity;
+
+        subtasksContainer.childNodes.forEach(node => {
+          if (node.nodeType === 1) { // Проверяем, что это элемент
+            const rect = node.getBoundingClientRect();
+            const distance = Math.abs(e.clientY - rect.top);
+            if (distance < minDistance) {
+              closestTask = node;
+              minDistance = distance;
+            }
+          }
+        });
+
+        if (closestTask) {
+          subtasksContainer.insertBefore(indicator, closestTask);
+        } else {
+          subtasksContainer.appendChild(indicator);
+        }
+      } else if (mouseY > partHeight && mouseY < (partHeight * 3)) { // Проверяем, находится ли курсор в центральной части
+        // Если у задачи еще нет сабтасков, показываем индикатор создания сабтаска
+        const indicator = document.createElement('div');
+        indicator.className = 'subtask-drop-indicator';
+        taskEl.appendChild(indicator);
+      } else {
+        // Обрабатываем обычное перемещение
+        // Создаем индикатор перемещения
+        const indicator = document.createElement('div');
+        indicator.className = 'task-drop-indicator';
+
+        // Определяем, куда вставлять индикатор
+        if (mouseY < partHeight) {
+          taskEl.parentNode.insertBefore(indicator, taskEl);
+        } else {
+          taskEl.parentNode.insertBefore(indicator, taskEl.nextSibling);
+        }
+      }
+    } else if (parentEl.classList.contains('column')) {
+      const colEl = parentEl;
+      // Получаем все задачи верхнего уровня в колонке
+      const tasks = Array.from(colEl.querySelectorAll('.task:not(.subtask)'));
+      const addTaskBtn = colEl.querySelector('.add-btn');
+
+      // Если нет задач, просто добавляем индикатор перед кнопкой
+      if (tasks.length === 0) {
+        // Если задач нет, добавляем индикатор перед кнопкой добавления
+        colEl.insertBefore(indicator, addTaskBtn);
+        return;
+      }
+
+      // Находим ближайшую задачу к курсору
+      const mouseY = e.clientY;
+      let closestTask = null;
+      let minDistance = Infinity;
+
+      tasks.forEach(task => {
+        const rect = task.getBoundingClientRect();
+        const taskMiddle = rect.top + rect.height / 2;
+        const distance = Math.abs(mouseY - taskMiddle);
+
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestTask = task;
+        }
+      });
+
+      if (closestTask) {
+        const rect = closestTask.getBoundingClientRect();
+        if (mouseY < rect.top + rect.height / 2) {
+          colEl.insertBefore(indicator, closestTask);
+        } else {
+          colEl.insertBefore(indicator, closestTask.nextSibling);
+        }
+      } else {
+        colEl.insertBefore(indicator, addTaskBtn);
+      }
+    }
+  }
+
+  function removeAllDropIndicators() {
+    document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
+    document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
+    document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
   }
 
 </script>
