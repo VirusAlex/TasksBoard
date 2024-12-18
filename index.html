@@ -48,6 +48,7 @@
     height: 100vh;
     height: -webkit-fill-available;
     overflow: hidden; /* Предотвращаем скролл на уровне main */
+    padding: 0 20px 20px 20px;
   }
 
   /* Обновляем стили для колонок */
@@ -367,25 +368,27 @@
   }
   /* Кнопка переключения темы */
   #theme-toggle {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    padding: 10px;
+    /* position: absolute; */
+    /* top: 20px; */
+    /* right: 20px; */
+    /* padding: 10px; */
     border-radius: 50%;
     width: 40px;
     height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+    font-size: 25px;
     background: white;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     line-height: 1;  /* Добавляем это */
+    position: static; /* Убираем абсолютное позиционирование */
+    margin-left: 15px;
   }
 
   #theme-toggle span {
     display: inline-block;
-    margin-top: -2px; /* Небольшая корректировка положения */
+    /* margin-top: -2px; Небольшая корректировка положения */
   }
   .dark-theme #theme-toggle {
     background: #34495e;
@@ -739,10 +742,32 @@
   .dark-theme .clear-time-btn:hover {
     background: #e74c3c;
   }
+
+  /* Добавляем стили для шапки */
+  .main-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 20px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .dark-theme .main-header {
+    border-bottom-color: rgba(255,255,255,0.1);
+  }
+
   /* Стили для заголовка доски */
   #board-title {
-    cursor: pointer;
-    user-select: none;
+    font-size: 28px;
+    font-weight: 500;
+    margin: 0;
+    color: #2c3e50;
+    transition: color 0.2s ease;
+  }
+
+  .dark-theme #board-title {
+    color: #ecf0f1;
   }
 
   #board-title:hover {
@@ -1079,9 +1104,6 @@
 </style>
 </head>
 <body>
-  <!-- Добавляем кнопку переключения темы сразу после открывающего тега body -->
-  <button id="theme-toggle"><span></span></button>
-
   <!-- Добавляем кнопку перед #sidebar -->
   <button id="sidebar-toggle" class="sidebar-toggle">☰</button>
 
@@ -1092,7 +1114,11 @@
   </div>
 
   <div id="main">
-    <h2 id="board-title"></h2>
+    <div class="main-header">
+      <h2 id="board-title"></h2>
+      <button id="theme-toggle"><span></span></button>
+    </div>
+
     <button id="add-column-btn" class="add-btn">+ Добавить колонку</button>
     <div id="columns"></div>
     
@@ -1555,16 +1581,15 @@
   const savedTheme = localStorage.getItem('theme');
   if (savedTheme === 'dark') {
     document.body.classList.add('dark-theme');
-    themeToggle.textContent = '☀️';
+    themeToggle.querySelector('span').textContent = '☀️';
   } else {  
-    themeToggle.textContent = '🌙';
+    themeToggle.querySelector('span').textContent = '🌙';
   }
 
   // Обработчик переключения темы
   themeToggle.addEventListener('click', () => {
     document.body.classList.toggle('dark-theme');
     const isDark = document.body.classList.contains('dark-theme');
-    themeToggle.textContent = isDark ? '☀️' : '🌙';
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
     themeToggle.querySelector('span').textContent = isDark ? '☀️' : '🌙';
   });
