@@ -155,7 +155,7 @@
     margin: 8px 0;
     cursor: grab;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    transition: all 0.2s ease;
+    transition: all 0.2s ease, background-color 0.2s ease;
     border: 1px solid rgba(0,0,0,0.08);
     display: flex;
     flex-direction: column;
@@ -174,6 +174,114 @@
   .task.info {
     border-left-color: #3498db; /* Синий цвет для информационных задач */
   }
+
+   /* Стили для выбора цвета */
+   .color-picker-group {
+    margin-top: 20px;
+    padding: 0 25px 0 0;
+  }
+
+  .color-picker-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    color: #34495e;
+  }
+
+  .reset-color-btn {
+    padding: 4px 8px;
+    font-size: 14px;
+    background: transparent;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: none;
+    color: #666;
+  }
+
+  .reset-color-btn:hover {
+    background: rgba(0,0,0,0.05);
+    transform: none;
+    box-shadow: none;
+  }
+
+  .dark-theme .reset-color-btn {
+    border-color: rgba(255,255,255,0.1);
+    color: #bdc3c7;
+  }
+
+  .dark-theme .reset-color-btn:hover {
+    background: rgba(255,255,255,0.1);
+  }
+
+  .dark-theme .color-picker-label {
+    color: #ecf0f1;
+  }
+
+  .color-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .color-option {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.2s ease;
+  }
+
+  .color-option:hover {
+    transform: scale(1.1);
+  }
+
+  .color-option.selected {
+    border-color: #3498db;
+  }
+
+  .dark-theme .color-option.selected {
+    border-color: #5dade2;
+  }
+
+  .color-option.custom {
+    background: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%),
+                linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 4px 4px;
+  }
+
+  .color-option input[type="color"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  /* Обновляем стили для тасков с кастомными цветами */
+  .task[data-custom-color] {
+    background-color: var(--task-bg-color, white);
+  }
+
+  .dark-theme .task[data-custom-color] {
+    background-color: var(--task-bg-color);
+  }
+
+  .task[data-custom-color].done {
+    background-color: var(--task-done-bg-color, #f5f5f5);
+  }
+
+  .dark-theme .task[data-custom-color].done {
+    background-color: var(--task-done-bg-color);
+  }
+
   /* Поля ввода */
   input[type="text"] {
     width: 100%;
@@ -776,7 +884,7 @@
   /* Стили для сабтасков */
   .task.subtask {
     font-size: 0.95em;
-    background: rgba(52, 152, 219, 0.05);
+    /* background: rgba(52, 152, 219, 0.05); */
     margin: 8px 0 0 0;
   }
 
@@ -1026,6 +1134,36 @@
           <small>Если не указано, сброс произойдет в начале следующего дня</small>
         </div>
 
+        
+        <div class="color-picker-group">
+          <label class="color-picker-label">Цвет задачи</label>
+          <div class="color-options" id="task-colors">
+            <div class="color-option" style="background-color: #f1c40f" data-color="#f1c40f"></div>
+            <div class="color-option" style="background-color: #3498db" data-color="#3498db"></div>
+            <div class="color-option" style="background-color: #e74c3c" data-color="#e74c3c"></div>
+            <div class="color-option" style="background-color: #2ecc71" data-color="#2ecc71"></div>
+            <div class="color-option" style="background-color: #9b59b6" data-color="#9b59b6"></div>
+            <div class="color-option custom">
+              <input type="color" id="custom-task-color">
+            </div>
+            <button type="button" class="reset-color-btn" id="reset-task-color" title="Сбросить цвет">↺</button>
+          </div>
+        </div>
+
+        <div class="color-picker-group" id="done-color-group" style="display: none;">
+          <label class="color-picker-label">Цвет выполненной задачи</label>
+          <div class="color-options" id="done-colors">
+            <div class="color-option" style="background-color: #2ecc71" data-color="#2ecc71"></div>
+            <div class="color-option" style="background-color: #27ae60" data-color="#27ae60"></div>
+            <div class="color-option" style="background-color: #16a085" data-color="#16a085"></div>
+            <div class="color-option custom">
+              <input type="color" id="custom-done-color">
+            </div>
+            <button type="button" class="reset-color-btn" id="reset-done-color" title="Сбросить цвет">↺</button>
+          </div>
+        </div>
+
+
         <div class="dialog-buttons">
           <div class="left-buttons">
             <button type="button" class="danger delete-btn" style="display: none;">Удалить</button>
@@ -1111,6 +1249,19 @@
 <script>
   // Добавьте в начало файла
   let resetTimeIntervals = new Map();
+
+  // Добавляем константы для цветов по умолчанию
+  const defaultTaskColors = {
+    pending: '#f1c40f',
+    info: '#3498db',
+    done: '#2ecc71'
+  };
+
+  const darkThemeTaskColors = {
+    pending: '#f39c12',
+    info: '#2980b9',
+    done: '#27ae60'
+  };
 
   // Генерация простых ID
   function generateId() {
@@ -1400,6 +1551,68 @@
     const resetTimeInput = document.getElementById('reset-time');
     const resetTimeGroup = document.querySelector('.reset-time-group');
     const submitButton = form.querySelector('button[type="submit"]');
+
+    const taskColorsEl = document.getElementById('task-colors');
+    const doneColorsEl = document.getElementById('done-colors');
+    const doneColorGroup = document.getElementById('done-color-group');
+    const customTaskColorInput = document.getElementById('custom-task-color');
+    const customDoneColorInput = document.getElementById('custom-done-color');
+    const resetTaskColorBtn = document.getElementById('reset-task-color');
+    const resetDoneColorBtn = document.getElementById('reset-done-color');
+
+    resetTaskColorBtn.addEventListener('click', () => {
+      updateSelectedColor(taskColorsEl, null);
+    });
+
+    resetDoneColorBtn.addEventListener('click', () => {
+      updateSelectedColor(doneColorsEl, null);
+    });
+
+    // Функция для обновления выбранного цвета
+    function updateSelectedColor(container, color) {
+      container.querySelectorAll('.color-option').forEach(option => {
+        option.classList.remove('selected');
+        if (color && option.dataset.color === color) {
+          option.classList.add('selected');
+        }
+      });
+    }
+
+    // Обработчики для выбора цвета
+    taskColorsEl.addEventListener('click', (e) => {
+      const option = e.target.closest('.color-option');
+      if (!option) return;
+      
+      const color = option.dataset.color;
+      updateSelectedColor(taskColorsEl, color);
+    });
+
+    doneColorsEl.addEventListener('click', (e) => {
+      const option = e.target.closest('.color-option');
+      if (!option) return;
+      
+      const color = option.dataset.color;
+      updateSelectedColor(doneColorsEl, color);
+    });
+
+    // Обработчики для кастомных цветов
+    customTaskColorInput.addEventListener('input', (e) => {
+      const color = e.target.value;
+      e.target.closest('.color-option').dataset.color = color;
+      updateSelectedColor(taskColorsEl, color);
+    });
+
+    customDoneColorInput.addEventListener('input', (e) => {
+      const color = e.target.value;
+      e.target.closest('.color-option').dataset.color = color;
+      updateSelectedColor(doneColorsEl, color);
+    });
+
+    // Показываем/скрываем выбор цвета выполнения
+    function updateColorGroups() {
+      doneColorGroup.style.display = infoCheckbox.checked ? 'none' : 'block';
+    }
+
     const board = getSelectedBoard();
 
     // Сохраняем subtasks существующей задачи, чтобы не потерять их при редактировании
@@ -1449,6 +1662,7 @@
     // Добавляем обработчики
     repeatCheckbox.addEventListener('change', handleRepeatChange);
     infoCheckbox.addEventListener('change', handleInfoChange);
+    infoCheckbox.addEventListener('change', updateColorGroups);
     
     // Удаляем обработчики при закрытии диалога
     const cleanup = () => {
@@ -1477,11 +1691,19 @@
         resetTimeInput.value = existingTask.resetTime || '';
         resetTimeGroup.style.display = existingTask.repeating ? '' : 'none';
       }
+
+      updateSelectedColor(taskColorsEl, existingTask.color || null);
+      updateSelectedColor(doneColorsEl, existingTask.doneColor || null);
+      updateColorGroups();
     } else {
       form.reset();
       resetTimeGroup.style.display = 'none';
       infoCheckbox.checked = false;
       repeatCheckbox.closest('.form-group').style = '';
+
+      updateSelectedColor(taskColorsEl, null);
+      updateSelectedColor(doneColorsEl, null);
+      updateColorGroups();
     }
 
     // Настраиваем кнопку удаления
@@ -1509,6 +1731,10 @@
     // Обработчик отправки формы
     form.onsubmit = (e) => {
       e.preventDefault();
+
+      const selectedTaskColor = taskColorsEl.querySelector('.color-option.selected')?.dataset.color;
+      const selectedDoneColor = doneColorsEl.querySelector('.color-option.selected')?.dataset.color;
+
       
       const taskData = {
         id: existingTask ? existingTask.id : generateId(),
@@ -1522,7 +1748,9 @@
         parentId: existingTask ? existingTask.parentId : null,
         subtasks: existingSubtasks,
         isInfo: infoCheckbox.checked,
-        collapsed: existingTask ? existingTask.collapsed : false
+        collapsed: existingTask ? existingTask.collapsed : false,
+        color: selectedTaskColor,
+        doneColor: infoCheckbox.checked ? null : selectedDoneColor,
       };
 
       if (existingTask) {
@@ -1819,6 +2047,28 @@
     // Создаем header задачи
     const taskHeader = document.createElement('div');
     taskHeader.className = 'task-header';
+
+    // Добавляем кастомные цвета
+    if (task.color || task.doneColor) {
+      taskEl.style.borderLeftColor = task.done ? task.doneColor : task.color;
+      taskEl.dataset.customColor = '';
+      
+      // Добавляем осветленный фоновый цвет
+      const bgColor = task.done && task.doneColor ? task.doneColor : task.color;
+      const alpha = task.done ? '0.1' : '0.05';
+      
+      // Конвертируем HEX в RGB для корректной работы с прозрачностью
+      const rgb = hexToRGB(bgColor);
+      
+      if (!task.done) {
+        taskEl.style.setProperty('--task-bg-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`);
+      }
+      
+      if (task.done && task.doneColor) {
+        const doneRgb = hexToRGB(task.doneColor);
+        taskEl.style.setProperty('--task-done-bg-color', `rgba(${doneRgb.r}, ${doneRgb.g}, ${doneRgb.b}, 0.15)`);
+      }
+    }
     
     // Добавляем чекбокс
     if (!task.isInfo) {
@@ -2605,6 +2855,18 @@
     document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
     document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
     document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
+  }
+
+  function hexToRGB(hex) {
+    // Убираем # если есть
+    hex = hex.replace('#', '');
+    
+    // Парсим значения RGB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    
+    return { r, g, b };
   }
 
 </script>
