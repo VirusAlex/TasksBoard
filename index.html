@@ -1420,50 +1420,13 @@
 
         e.preventDefault();
         e.stopPropagation();
-        isProcessingDrop = true;
-
-        const columnId = colEl.dataset.columnId;
-        const board = getSelectedBoard();
 
         if (draggingTask) {
-          const draggedTaskId = draggingTask.dataset.taskId;
-        
-          try {
-            // Находим ближайший индикатор
-            const indicator = colEl.querySelector('.task-drop-indicator');
-            if (indicator) {
-              // Находим все задачи в колонке
-              const column = board.columns.find(col => col.id === columnId);
-
-              // Если есть индикатор, находим его позицию среди задач
-              const nextTask = indicator.nextElementSibling;
-              const prevTask = indicator.previousElementSibling;
-              let prevIndex = prevTask && prevTask.dataset ? column.tasks.findIndex(task => task.id === prevTask.dataset.taskId) : -1;
-              let nextIndex = nextTask && nextTask.dataset ? column.tasks.findIndex(task => task.id === nextTask.dataset.taskId) : -1;
-              let currentIndex = column.tasks.findIndex(task => task.id === draggingTask.dataset.taskId);
-
-              // Если индикатор находтся рядом с текущим таском, то не перемещаем
-              if ((nextIndex === currentIndex || prevIndex === currentIndex) && currentIndex !== -1) return;
-
-              // учесть, если перетаскиваемый таск уже в этой колонке
-              let finalIndex = nextTask ? nextIndex : column.tasks.length;
-              if (currentIndex !== -1) {
-                  finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
-              }
-              
-              moveTaskToColumn(draggedTaskId, columnId, finalIndex);
-            } else {
-              // Если индикатора нет, добавляем в конец колонки
-              moveTaskToColumn(draggedTaskId, columnId);
-            }
-          } finally {
-              isProcessingDrop = false;
-              // Удаляем все индикаторы
-              document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
-              document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
-          }
+          handleTaskDrop(e, colEl);
         } else {
+          isProcessingDrop = true;
           try {
+            const board = getSelectedBoard();
             const draggedColId = draggingCol.dataset.columnId;
             const draggedColIndex = board.columns.findIndex(col => col.id === draggedColId);
             const targetColIndex = board.columns.findIndex(col => col.id === colEl.dataset.columnId);
@@ -2487,9 +2450,6 @@
       document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
       document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
       
-      // Получаем задачу, над которой находимся
-      const targetTask = findTaskById(taskEl.dataset.taskId);
-      
       const subtasksContainer = taskEl.querySelector('.subtasks-container');
       // Проверяем, если есть контейнер сабтасков - находимся ли мы над ним
       let aboveSubtasksContainer = false;
@@ -2532,8 +2492,6 @@
           taskEl.appendChild(indicator);
       } else {
           // Обрабатываем обычное перемещение
-          const column = taskEl.closest('.column');
-          
           // Создаем индикатор перемещения
           const indicator = document.createElement('div');
           indicator.className = 'task-drop-indicator';
@@ -2547,95 +2505,8 @@
       }
     });
 
-    // Обработчик drop с защитой от двойной обработки
     taskEl.addEventListener('drop', (e) => {
-      console.log('taskEl drop: ', JSON.stringify(e));
-      if (isProcessingDrop) return;
-
-      const draggingTask = document.querySelector('.task.dragging');
-      if (!draggingTask) return;
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (draggingTask === taskEl) return;
-
-      const draggedTaskId = draggingTask.dataset.taskId;
-      const targetTaskId = taskEl.dataset.taskId;
-      const colEl = taskEl.closest('.column');
-      const columnId = colEl.dataset.columnId;
-      const column = getSelectedBoard().columns.find(col => col.id === columnId); 
-      
-      isProcessingDrop = true;
-
-      try {
-        // Проверяем наличие индикатора сабтаска
-        const subtaskIndicator = taskEl.querySelector('.subtask-drop-indicator');
-        if (subtaskIndicator) {
-          makeSubtask(draggedTaskId, targetTaskId);
-        } else {
-          const taskIndicator = colEl.querySelector('.task-drop-indicator');
-          const parentTaskEl = taskIndicator.closest('.task');
-          // Если есть индикатор, и если родитель - таск, то это перемещение внутри списка сабтасков
-          if (taskIndicator && parentTaskEl) {
-              const draggedTask = findTaskById(draggedTaskId);
-            
-              const parentTask = findTaskById(parentTaskEl.dataset.taskId);
-              const tasks = parentTask.subtasks;
-
-              // Определяем позицию индикатора и вставляем задачу в эту позицию в родителе
-              const prevTask = taskIndicator.previousElementSibling;
-              const nextTask = taskIndicator.nextElementSibling;
-              const currentIndex = tasks.findIndex(task => task === draggingTask.dataset.taskId);
-              const prevIndex = prevTask && prevTask.dataset ? tasks.findIndex(task => task === prevTask.dataset.taskId) : -1;
-              const nextIndex = nextTask && nextTask.dataset ? tasks.findIndex(task => task === nextTask.dataset.taskId) : -1;
-
-              // учесть, если перетаскиваемый таск уже в этой колонке
-              let finalIndex = nextTask ? nextIndex : tasks.length;
-              if (currentIndex !== -1) {
-                  finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
-              }
-
-              // Добавляем задачу в массив tasks колонки
-              removeTaskFromCurrentPosition(draggedTask);
-              column.tasks.push(draggedTask);
-              // Устанавливаем родителя для перетаскиваемой задачи
-              draggedTask.parentId = parentTask.id;
-
-              if (currentIndex === prevIndex) {
-                parentTask.subtasks.splice(finalIndex, 0, draggedTaskId);
-              } else {
-                parentTask.subtasks.splice(finalIndex, 0, draggedTaskId);
-              }
-
-              saveData();
-              render();
-          } else {
-            // Если нет, то это обычное перемещение в колонку
-            // Получаем все задачи в колонке, включая сабтаски
-            const tasks = column.tasks;
-            const targetIndex = tasks.findIndex(task => task.id === taskEl.dataset.taskId);
-            
-            // Определяем, куда вставлять - до или после целевой задачи
-            const rect = taskEl.getBoundingClientRect();
-            const halfHeight = rect.height / 2;
-            const mouseY = e.clientY - rect.top;
-
-            // учесть, если перетаскиваемый таск уже в этой колонке
-            let currentIndex = tasks.findIndex(task => task.id === draggingTask.dataset.taskId);
-            let finalIndex = mouseY > halfHeight ? targetIndex + 1 : targetIndex;
-            if (currentIndex !== -1) {
-              finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
-            }
-            
-            moveTaskToColumn(draggedTaskId, columnId, finalIndex);
-          }
-        }
-      } finally {
-        isProcessingDrop = false;
-        // Удаляем все индикаторы
-        document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
-        document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
-      }
+      handleTaskDrop(e, taskEl);
     });
 
     // Добавляем обработчик двойного клика для редактирования
@@ -2693,6 +2564,96 @@
     }
     countTasks(column.tasks);
     return { done, total };
+  }
+
+  // Добавляем после остальных функций
+  function handleTaskDrop(e, container) {
+    if (isProcessingDrop) return;
+
+    const draggingTask = document.querySelector('.task.dragging');
+    if (!draggingTask) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    isProcessingDrop = true;
+
+    try {
+      const draggedTaskId = draggingTask.dataset.taskId;
+      const board = getSelectedBoard();
+      
+      // Определяем тип контейнера и цели
+      const isColumn = container.classList.contains('column');
+      const targetTask = container.classList.contains('task') ? container : null;
+      
+      // Получаем колонку
+      const colEl = isColumn ? container : container.closest('.column');
+      const columnId = colEl.dataset.columnId;
+      const column = board.columns.find(col => col.id === columnId);
+
+      // Проверяем наличие индикаторов
+      const subtaskIndicator = targetTask?.querySelector('.subtask-drop-indicator');
+      const taskIndicator = colEl.querySelector('.task-drop-indicator');
+      const parentTaskEl = taskIndicator?.closest('.task');
+
+      if (subtaskIndicator && targetTask) {
+        // Случай 1: Создание сабтаска
+        makeSubtask(draggedTaskId, targetTask.dataset.taskId);
+      } else if (taskIndicator && parentTaskEl) {
+        // Случай 2: Перемещение внутри списка сабтасков
+        const draggedTask = findTaskById(draggedTaskId);
+        const parentTask = findTaskById(parentTaskEl.dataset.taskId);
+        const tasks = parentTask.subtasks;
+
+        // Определяем позицию вставки
+        const prevTask = taskIndicator.previousElementSibling;
+        const nextTask = taskIndicator.nextElementSibling;
+        const currentIndex = tasks.findIndex(task => task === draggedTaskId);
+        const prevIndex = prevTask?.dataset ? tasks.findIndex(task => task === prevTask.dataset.taskId) : -1;
+        const nextIndex = nextTask?.dataset ? tasks.findIndex(task => task === nextTask.dataset.taskId) : -1;
+
+        if ((nextIndex === currentIndex || prevIndex === currentIndex) && currentIndex !== -1) return;
+
+        let finalIndex = nextTask ? nextIndex : tasks.length;
+        if (currentIndex !== -1) {
+          finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
+        }
+
+        // Обновляем позицию
+        removeTaskFromCurrentPosition(draggedTask);
+        column.tasks.push(draggedTask);
+        draggedTask.parentId = parentTask.id;
+        parentTask.subtasks.splice(finalIndex, 0, draggedTaskId);
+
+        saveData();
+        render();
+      } else if (taskIndicator) {
+        // Случай 3: Обычное перемещение в колонку
+        const tasks = column.tasks;
+
+        // Если есть индикатор, находим его позицию среди задач
+        const nextTask = taskIndicator.nextElementSibling;
+        const prevTask = taskIndicator.previousElementSibling;
+        let prevIndex = prevTask && prevTask.dataset ? tasks.findIndex(task => task.id === prevTask.dataset.taskId) : -1;
+        let nextIndex = nextTask && nextTask.dataset ? tasks.findIndex(task => task.id === nextTask.dataset.taskId) : -1;
+        let currentIndex = tasks.findIndex(task => task.id === draggingTask.dataset.taskId);
+
+        // Если индикатор находтся рядом с текущим таском, то не перемещаем
+        if ((nextIndex === currentIndex || prevIndex === currentIndex) && currentIndex !== -1) return;
+
+        // учесть, если перетаскиваемый таск уже в этой колонке
+        let finalIndex = nextTask ? nextIndex : tasks.length;
+        if (currentIndex !== -1) {
+            finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
+        }
+        
+        moveTaskToColumn(draggedTaskId, columnId, finalIndex);
+      }
+    } finally {
+      isProcessingDrop = false;
+      // Удаляем все индикаторы
+      document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
+      document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
+    }
   }
 
 </script>
