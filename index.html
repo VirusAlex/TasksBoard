@@ -1175,43 +1175,7 @@
   });
 
   columnsEl.addEventListener('drop', (e) => {
-    console.log('columnsEl drop: ', JSON.stringify(e));
-    if (isProcessingDrop) return;
-    // Если тащим задачу, а не колонку - пропускаем
-    if (document.querySelector('.task.dragging')) return;
-    const draggingCol = document.querySelector('.column.dragging');
-    if (!draggingCol) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    isProcessingDrop = true;
-    const board = getSelectedBoard();
-    const draggedColId = draggingCol.dataset.columnId;
-    const draggedColIndex = board.columns.findIndex(col => col.id === draggedColId);
-
-    // Ищем позицию индикатора и перемещаем колонку
-    const indicator = document.querySelector('.column-drop-indicator');
-    if (indicator) {
-      const prevCol = indicator.previousElementSibling;
-      const nextCol = indicator.nextElementSibling;
-
-      const prevColIndex = prevCol ? board.columns.findIndex(col => col.id === prevCol.dataset.columnId) : -1;
-      const nextColIndex = nextCol ? board.columns.findIndex(col => col.id === nextCol.dataset.columnId) : -1;
-      let finalIndex = nextCol ? nextColIndex : board.columns.length;
-      if (draggedColIndex !== -1) {
-        finalIndex = draggedColIndex < finalIndex ? finalIndex - 1 : finalIndex;
-      }
-
-      // Перемещаем колонку в новую позицию
-      if (finalIndex !== -1) {
-        const [movedColumn] = board.columns.splice(draggedColIndex, 1);
-        board.columns.splice(finalIndex, 0, movedColumn);
-        saveData();
-        render();
-      }
-      isProcessingDrop = false;
-    }
+    handleColumnDrop(e);
   });
 
   // Проверка повторяющихся задач: если дата сегодня > дата выполнения — снять отметку
@@ -1424,34 +1388,7 @@
         if (draggingTask) {
           handleTaskDrop(e, colEl);
         } else {
-          isProcessingDrop = true;
-          try {
-            const board = getSelectedBoard();
-            const draggedColId = draggingCol.dataset.columnId;
-            const draggedColIndex = board.columns.findIndex(col => col.id === draggedColId);
-            const targetColIndex = board.columns.findIndex(col => col.id === colEl.dataset.columnId);
-
-            if (draggedColIndex === -1 || targetColIndex === -1) return;
-
-            // Определяем, куда вставлять колонку
-            const rect = colEl.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const insertAfter = mouseX > rect.width / 2;
-
-            // Перемещаем колонку
-            const [movedColumn] = board.columns.splice(draggedColIndex, 1);
-            const newIndex = insertAfter ? targetColIndex + 1 : targetColIndex;
-            board.columns.splice(newIndex, 0, movedColumn);
-
-            saveData();
-            render();
-          } finally {
-            isProcessingDrop = false;
-            // Удаляем все индикаторы
-            document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
-            document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
-            document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
-          }
+          handleColumnDrop(e);
         }
       });
       // ================================
@@ -2653,6 +2590,46 @@
       // Удаляем все индикаторы
       document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
       document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
+    }
+  }
+
+  function handleColumnDrop(e) {
+    if (isProcessingDrop) return;
+    const draggingCol = document.querySelector('.column.dragging');
+    if (!draggingCol) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    isProcessingDrop = true;
+
+    try {
+      const board = getSelectedBoard();
+      const draggedColId = draggingCol.dataset.columnId;
+      const draggedColIndex = board.columns.findIndex(col => col.id === draggedColId);
+
+      // Находим позицию для вставки
+      const indicator = document.querySelector('.column-drop-indicator');
+      if (!indicator) return;
+
+      const nextCol = indicator.nextElementSibling;
+      const nextColIndex = nextCol ? board.columns.findIndex(col => col.id === nextCol.dataset.columnId) : -1;
+      
+      let finalIndex = nextCol ? nextColIndex : board.columns.length;
+      if (draggedColIndex !== -1) {
+        finalIndex = draggedColIndex < finalIndex ? finalIndex - 1 : finalIndex;
+      }
+
+      // Перемещаем колонку в новую позицию
+      if (finalIndex !== -1) {
+        const [movedColumn] = board.columns.splice(draggedColIndex, 1);
+        board.columns.splice(finalIndex, 0, movedColumn);
+        saveData();
+        render();
+      }
+    } finally {
+      isProcessingDrop = false;
+      // Удаляем все индикаторы
+      document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
     }
   }
 
