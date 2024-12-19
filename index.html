@@ -2463,7 +2463,14 @@
         deadlineInfo.classList.add('overdue');
       }
       
-      deadlineInfo.textContent = `⏰ ${formatDeadlineTime(deadline)}`;
+      const updateTime = () => {
+        deadlineInfo.textContent = `⏰ ${formatDeadlineTime(deadline)}`;
+      };
+      
+      updateTime();
+      const intervalId = setInterval(updateTime, 1000);
+      resetTimeIntervals.set(task.id, intervalId);
+      
       timeIndicators.appendChild(deadlineInfo);
     }
     // Добавляем информацию о сбросе для повторяющихся задач
@@ -2477,17 +2484,10 @@
       }
       
       const updateTime = () => {
-        if (!task.done && task.deadline) {  
-          deadlineInfo.textContent = formatDeadlineTime(deadline);
-        }
-        else if (task.repeating) {
-          resetInfo.textContent = formatTimeLeft(task.resetTime || '00:00');
-        }
+        resetInfo.textContent = formatTimeLeft(task.resetTime || '00:00');
       };
       
-      updateTime(); // Обновляем сразу
-      
-      // Сохраняем новый интервал
+      updateTime();
       const intervalId = setInterval(updateTime, 1000);
       resetTimeIntervals.set(task.id, intervalId);
       
