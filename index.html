@@ -1185,6 +1185,53 @@
     background: rgba(255,255,255,0.1);
   }
 
+  /* Добавляем стили для пульсации */
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(215, 29, 9, 0.87);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(231, 76, 60, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+    }
+  }
+
+  .task.deadline-warning {
+    animation: pulse 1s infinite;
+  }
+
+  .dark-theme .task.deadline-warning {
+    animation: pulse 1s infinite;
+  }
+
+  /* Стили для индикатора дедлайна */
+  .task-deadline-info {
+    color: rgba(00, 00, 00, 0.96);
+    background: rgba(211, 203, 202, 0.78);
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1.4;
+    font-size: 11px;
+    white-space: nowrap;
+    margin-left: auto;
+  }
+
+  .dark-theme .task-deadline-info {
+    color: rgba(218, 210, 209, 0.96);
+    background: rgba(224, 209, 178, 0.2);
+  }
+
+  .task-deadline-info.overdue {
+    background: rgba(231, 76, 60, 0.2);
+    font-weight: 500;
+  }
+
+  .dark-theme .task-deadline-info.overdue {
+    background: rgba(231, 76, 60, 0.3);
+  }
+
 </style>
 </head>
 <body>
@@ -1276,6 +1323,19 @@
             </div>
           </div>
           <small>Если не указано, сброс произойдет в начале следующего дня</small>
+        </div>
+
+        <div class="form-group checkbox" id="deadline-group">
+          <input type="checkbox" id="task-deadline-enabled">
+          <label for="task-deadline-enabled">Установить дедлайн</label>
+        </div>
+
+        <div class="form-group" id="deadline-inputs" style="display: none;">
+          <label>Дата и время дедлайна:</label>
+          <div style="display: flex; gap: 10px;">
+            <input type="date" id="deadline-date" style="flex: 1;">
+            <input type="time" id="deadline-time" style="width: 120px;">
+          </div>
         </div>
 
         
@@ -1716,6 +1776,15 @@
     const resetTimeInput = document.getElementById('reset-time');
     const resetTimeGroup = document.querySelector('.reset-time-group');
     const submitButton = form.querySelector('button[type="submit"]');
+    const deadlineGroup = document.getElementById('deadline-group');
+    const deadlineEnabled = document.getElementById('task-deadline-enabled');
+    const deadlineInputs = document.getElementById('deadline-inputs');
+    const deadlineDate = document.getElementById('deadline-date');
+    const deadlineTime = document.getElementById('deadline-time');
+
+    // Добавляем минимальную дату (сегодня) для выбора дедлайна
+    const today = new Date().toISOString().split('T')[0];
+    deadlineDate.min = today;
 
     const taskColorsEl = document.getElementById('task-colors');
     const doneColorsEl = document.getElementById('done-colors');
@@ -1801,15 +1870,31 @@
     // Обновляем текст кнопки в зависимости от режима
     submitButton.textContent = existingTask ? 'Сохранить' : 'Создать';
 
-    // Добавляем обработчик очистки времени
+    // Обновляем видимость поля дедлайна при изменении повторяемости
     const handleRepeatChange = () => {
         resetTimeGroup.style.display = repeatCheckbox.checked ? 'block' : 'none';
-        if (!repeatCheckbox.checked) {
+        if (repeatCheckbox.checked) {
+          deadlineGroup.style.display = 'none';
+          deadlineEnabled.checked = false;
+          deadlineInputs.style.display = 'none';
+        } else {
+            deadlineGroup.style.display = '';
             resetTimeInput.value = '';
         }
     };
 
-    // Показываем/скрываем поле времени при изменении чекбокса
+    // Обработчик изменения чекбокса дедлайна
+    const handleDeadlineChange = () => {
+      deadlineInputs.style.display = deadlineEnabled.checked ? 'block' : 'none';
+      if (!deadlineEnabled.checked) {
+        deadlineDate.value = '';
+        deadlineTime.value = '';
+      }
+    };
+
+    deadlineEnabled.addEventListener('change', handleDeadlineChange);
+
+    // Обновляем видимость поля дедлайна при изменении типа задачи
     const handleInfoChange = () => {
         if (infoCheckbox.checked) {
           // Если задача стала информационной - сбрасываем все связанные поля
@@ -1818,9 +1903,13 @@
             resetTimeInput.value = '';
             // Скрываем группу с повторением
             repeatCheckbox.closest('.form-group').style.display = 'none';
+            deadlineGroup.style.display = 'none';
+            deadlineEnabled.checked = false;
+            deadlineInputs.style.display = 'none';
         } else {
             // Показываем группу с повторением обратно
             repeatCheckbox.closest('.form-group').style = '';
+            deadlineGroup.style.display = '';
         }
     };
 
@@ -1843,32 +1932,35 @@
       titleInput.value = existingTask.title;
       descriptionInput.value = existingTask.description || '';
       infoCheckbox.checked = existingTask.isInfo || false;
-      
-      // Показываем/скрываем опции повторения в зависимости от типа задачи
-      if (existingTask.isInfo) {
-        repeatCheckbox.closest('.form-group').style.display = 'none';
-        repeatCheckbox.checked = false;
-        resetTimeGroup.style.display = 'none';
-        resetTimeInput.value = '';
+      repeatCheckbox.checked = existingTask.repeating || false;
+      resetTimeInput.value = existingTask.resetTime || '';
+
+      // Устанавливаем значения дедлайна
+      if (existingTask.deadline) {
+        const deadline = new Date(existingTask.deadline);
+        deadlineEnabled.checked = true;
+        deadlineDate.value = deadline.toISOString().split('T')[0];
+        deadlineTime.value = deadline.toTimeString().slice(0, 5);
+        deadlineInputs.style.display = 'block';
       } else {
-        repeatCheckbox.closest('.form-group').style = '';
-        repeatCheckbox.checked = existingTask.repeating;
-        resetTimeInput.value = existingTask.resetTime || '';
-        resetTimeGroup.style.display = existingTask.repeating ? '' : 'none';
+        deadlineEnabled.checked = false;
+        deadlineInputs.style.display = 'none';
       }
 
       updateSelectedColor(taskColorsEl, existingTask.color || null);
       updateSelectedColor(doneColorsEl, existingTask.doneColor || null);
       updateColorGroups();
+      handleInfoChange();
+      handleRepeatChange();
     } else {
       form.reset();
       resetTimeGroup.style.display = 'none';
-      infoCheckbox.checked = false;
-      repeatCheckbox.closest('.form-group').style = '';
+      deadlineInputs.style.display = 'none';
 
       updateSelectedColor(taskColorsEl, null);
       updateSelectedColor(doneColorsEl, null);
       updateColorGroups();
+      handleInfoChange();
     }
 
     // Настраиваем кнопку удаления
@@ -1900,6 +1992,13 @@
       const selectedTaskColor = taskColorsEl.querySelector('.color-option.selected')?.dataset.color;
       const selectedDoneColor = doneColorsEl.querySelector('.color-option.selected')?.dataset.color;
 
+      // Собираем данные о дедлайне
+      let deadline = null;
+      if (!infoCheckbox.checked && !repeatCheckbox.checked && deadlineEnabled.checked) {
+        if (deadlineDate.value && deadlineTime.value) {
+          deadline = new Date(deadlineDate.value + 'T' + deadlineTime.value).toISOString();
+        }
+      }
       
       const taskData = {
         id: existingTask ? existingTask.id : generateId(),
@@ -1916,6 +2015,7 @@
         collapsed: existingTask ? existingTask.collapsed : false,
         color: selectedTaskColor,
         doneColor: infoCheckbox.checked ? null : selectedDoneColor,
+        deadline: deadline
       };
 
       if (existingTask) {
@@ -1962,6 +2062,27 @@
       return `↻ ${hoursLeft}ч ${minutesLeft}м`;
     }
     return `↻ ${minutesLeft}м`;
+  }
+
+  // Обновляем функцию форматирования времени
+  function formatDeadlineTime(date) {
+    const now = new Date();
+    const target = new Date(date);
+
+    const diff = Math.abs(target - now);
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    const postfix = target <= now ? " назад" : "";
+
+    if (days > 0) {
+      return `${days}д ${hours}ч${postfix}`;
+    }
+    if (hours > 0) {
+      return `${hours}ч ${minutes}м${postfix}`;
+    }
+    return `${minutes}м${postfix}`;
   }
 
   // Обновляем функцию проверки сброса задач
@@ -2212,6 +2333,19 @@
   function renderTask(task, container) {
     const taskEl = document.createElement('div');
     taskEl.className = 'task' + (task.done ? ' done' : '') + (task.parentId ? ' subtask' : '') + (task.isInfo ? ' info' : '');
+    
+    // Добавляем класс для пульсации, если есть дедлайн и он скоро
+    if (!task.done && task.deadline) {
+      const deadline = new Date(task.deadline);
+      const now = new Date();
+      const diff = deadline - now;
+      const hourInMs = 60 * 60 * 1000;
+      
+      if (diff < hourInMs || diff < 0) {
+        taskEl.classList.add('deadline-warning');
+      }
+    }
+
     taskEl.draggable = true;
     taskEl.dataset.taskId = task.id;
 
@@ -2318,8 +2452,22 @@
       timeIndicators.appendChild(doneTime);
     }
 
+    // Добавляем информацию о дедлайне для невыполненных задач
+    if (!task.done && task.deadline) {
+      const deadlineInfo = document.createElement('div');
+      deadlineInfo.className = 'task-deadline-info';
+      const now = new Date();
+      const deadline = new Date(task.deadline);
+      
+      if (deadline <= now) {
+        deadlineInfo.classList.add('overdue');
+      }
+      
+      deadlineInfo.textContent = `⏰ ${formatDeadlineTime(deadline)}`;
+      timeIndicators.appendChild(deadlineInfo);
+    }
     // Добавляем информацию о сбросе для повторяющихся задач
-    if (task.repeating && task.done) {
+    else if (task.repeating && task.done) {
       const resetInfo = document.createElement('div');
       resetInfo.className = 'task-reset-info';
 
@@ -2329,7 +2477,12 @@
       }
       
       const updateTime = () => {
+        if (!task.done && task.deadline) {  
+          deadlineInfo.textContent = formatDeadlineTime(deadline);
+        }
+        else if (task.repeating) {
           resetInfo.textContent = formatTimeLeft(task.resetTime || '00:00');
+        }
       };
       
       updateTime(); // Обновляем сразу
