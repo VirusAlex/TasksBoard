@@ -1270,6 +1270,253 @@
     background: rgba(231, 76, 60, 0.3);
   }
 
+  /* Добавляем стили для календаря */
+  #calendar-view-content {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .calendar-header {
+    margin-bottom: 30px;
+  }
+
+  .calendar-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .calendar-nav h3 {
+    font-size: 24px;
+    margin: 0;
+    min-width: 200px;
+    text-align: center;
+  }
+
+  .main-calendar {
+    margin-bottom: 40px;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .main-calendar .calendar-grid {
+    gap: 15px;
+  }
+
+  .calendar-day-header {
+    text-align: center;
+    font-weight: 500;
+    color: #666;
+    padding: 5px;
+  }
+
+  .dark-theme .calendar-day-header {
+    color: #bdc3c7;
+  }
+
+  .calendar-day {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    background: white;
+    padding: 8px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .dark-theme .calendar-day {
+    background: #34495e;
+  }
+
+  .calendar-day:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 10; /* Добавляем z-index при наведении */
+  }
+
+  .dark-theme .calendar-day:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  .calendar-day.other-month {
+    opacity: 0.5;
+  }
+
+  .calendar-day.today {
+    border: 2px solid #3498db;
+  }
+
+  .calendar-day .date {
+    font-size: 14px;
+    margin-bottom: 5px;
+  }
+
+  .main-calendar .calendar-day .date {
+    font-size: 16px;
+  }
+
+  .task-markers {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .task-marker {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3498db;
+  }
+
+  .task-marker.overdue {
+    background: #e74c3c;
+  }
+
+  .task-marker.done {
+    background: #2ecc71;
+  }
+
+  .calendar-day .task-list {
+    display: none;
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border-radius: 8px;
+    padding: 10px;
+    min-width: 200px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 100; /* Увеличиваем z-index для всплывающего списка */
+  }
+
+  .dark-theme .calendar-day .task-list {
+    background: #2c3e50;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  .calendar-day:hover .task-list {
+    display: block;
+  }
+
+  /* Добавляем стрелочку для всплывающего списка */
+  .calendar-day .task-list::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 12px;
+    height: 12px;
+    background: inherit;
+    box-shadow: -2px -2px 4px rgba(0,0,0,0.05);
+    z-index: -1; /* Помещаем стрелку под контент */
+  }
+
+  .dark-theme .calendar-day .task-list::before {
+    box-shadow: -2px -2px 4px rgba(0,0,0,0.2);
+  }
+
+  .task-list-item {
+    padding: 5px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .task-list-item:hover {
+    background: rgba(52,152,219,0.1);
+  }
+
+  .dark-theme .task-list-item:hover {
+    background: rgba(52,152,219,0.2);
+  }
+
+  .task-list-item.done {
+    text-decoration: line-through;
+    opacity: 0.7;
+  }
+
+  .task-list-item.overdue {
+    color: #e74c3c;
+  }
+
+  .mini-calendars {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    margin-top: auto;
+    padding-top: 20px;
+  }
+
+  .mini-calendar {
+    flex: 1;
+    max-width: 400px;
+  }
+
+  .dark-theme .mini-calendar h4 {
+    color: #bdc3c7;
+  }
+
+  .mini-calendar .calendar-day {
+    padding: 4px;
+  }
+
+  .calendar-item {
+    cursor: pointer;
+    margin: 0;
+    padding: 12px 20px;
+    transition: all 0.2s ease;
+    position: relative;
+    border-left: 3px solid transparent;
+  }
+
+  .calendar-item:hover {
+    background: rgba(52,152,219,0.1);
+    border-left-color: rgba(52,152,219,0.5);
+  }
+
+  .calendar-item.selected {
+    background: rgba(52,152,219,0.15);
+    border-left-color: #3498db;
+    font-weight: 500;
+  }
+
+  @media (max-width: 768px) {
+    .mini-calendars {
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .mini-calendar {
+      max-width: none;
+    }
+  }
+
+  /* Добавляем стили для статичного меню */
+  #static-menu {
+    margin: 0 -20px;
+    margin-bottom: 10px;
+  }
+
+  #static-menu .calendar-item {
+    margin: 0;
+  }
 </style>
 </head>
 <body>
@@ -1278,6 +1525,9 @@
 
   <div id="sidebar" class="sidebar">
     <h2>Доски</h2>
+    <div id="static-menu">
+      <div id="calendar-view" class="calendar-item">📅 Календарь</div>
+    </div>
     <ul id="boards"></ul>
     <button id="add-board-btn" class="add-btn">+ Добавить доску</button>
     <div class="sidebar-buttons">
@@ -1293,9 +1543,34 @@
       <button id="theme-toggle"><span></span></button>
     </div>
 
-    <button id="add-column-btn" class="add-btn">+ Добавить колонку</button>
-    <div id="columns"></div>
-    
+    <div id="board-view">
+      <button id="add-column-btn" class="add-btn">+ Добавить колонку</button>
+      <div id="columns"></div>
+    </div>
+
+    <div id="calendar-view-content" style="display: none;">
+      <div class="calendar-header">
+        <div class="calendar-nav">
+          <button class="icon-button" id="prev-month">◀</button>
+          <h3 id="current-month"></h3>
+          <button class="icon-button" id="next-month">▶</button>
+        </div>
+      </div>
+      
+      <div class="main-calendar"></div>
+      
+      <div class="mini-calendars">
+        <div class="mini-calendar prev-month">
+          <h4></h4>
+          <div class="calendar-grid"></div>
+        </div>
+        <div class="mini-calendar next-month">
+          <h4></h4>
+          <div class="calendar-grid"></div>
+        </div>
+      </div>
+    </div>
+
     <dialog id="column-dialog" class="custom-dialog">
       <form method="dialog">
         <div class="dialog-header">
@@ -1489,9 +1764,6 @@
   </div>
 
 <script>
-  // Добавьте в начало файла
-  let resetTimeIntervals = new Map();
-
   // Добавляем константы для цветов по умолчанию
   const defaultTaskColors = {
     pending: '#f1c40f',
@@ -1514,7 +1786,11 @@
     boards: [],
     selectedBoardId: null
   };
+  let resetTimeIntervals = new Map();
+  let currentDate = new Date();
+  let isCalendarView = false;
 
+  // Получаем элементы
   const boardsEl = document.getElementById('boards');
   const addBoardBtn = document.getElementById('add-board-btn');
   const boardTitleEl = document.getElementById('board-title');
@@ -1557,22 +1833,12 @@
     data.boards.forEach(board => {
       const li = document.createElement('li');
       li.textContent = board.name;
+      li.dataset.boardId = board.id;
       
       if (data.selectedBoardId === board.id) {
         li.className = 'selected';
       }
       
-      li.onclick = () => {
-        // Удаляем класс selected у всех элементов
-        boardsEl.querySelectorAll('li').forEach(el => el.classList.remove('selected'));
-        // Добавляем класс selected к выбранному элементу
-        li.classList.add('selected');
-        
-        data.selectedBoardId = board.id;
-        saveData();
-        render();
-      };
-
       boardsEl.appendChild(li);
     });
   }
@@ -1740,9 +2006,23 @@
     openColumnDialog();
   });
 
+  // Обновляем функцию render
   function render() {
     renderBoardsList();
-    renderBoard();
+    const calendarViewEl = document.getElementById('calendar-view');
+    
+    if (isCalendarView) {
+      renderCalendar();
+      calendarViewEl?.classList.add('selected');
+      document.getElementById('board-view').style.display = 'none';
+      document.getElementById('calendar-view-content').style.display = 'block';
+      boardTitleEl.textContent = 'Календарь';
+    } else {
+      renderBoard();
+      calendarViewEl?.classList.remove('selected');
+      document.getElementById('board-view').style.display = 'block';
+      document.getElementById('calendar-view-content').style.display = 'none';
+    }
   }
 
   // Инициализация
@@ -3341,6 +3621,224 @@
     reader.readAsText(file);
   });
 
+  // Функция для отображения календаря
+  function renderCalendar() {
+    const mainCalendar = document.querySelector('.main-calendar');
+    const prevMonthCal = document.querySelector('.mini-calendar.prev-month');
+    const nextMonthCal = document.querySelector('.mini-calendar.next-month');
+    
+    // Очищаем и подготавливаем контейнер основного календаря
+    mainCalendar.innerHTML = '<div class="calendar-grid"></div>';
+    
+    // Обновляем заголовок текущего месяца
+    document.getElementById('current-month').textContent = currentDate.toLocaleString('ru', { 
+      month: 'long', 
+      year: 'numeric' 
+    });
+
+    // Создаем даты для предыдущего и следующего месяцев
+    const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+
+    // Обновляем заголовки мини-календарей
+    prevMonthCal.querySelector('h4').textContent = prevMonth.toLocaleString('ru', { 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    nextMonthCal.querySelector('h4').textContent = nextMonth.toLocaleString('ru', { 
+      month: 'long', 
+      year: 'numeric' 
+    });
+
+    // Рендерим календари
+    renderMonth(mainCalendar.querySelector('.calendar-grid'), currentDate, true);
+    renderMonth(prevMonthCal.querySelector('.calendar-grid'), prevMonth, false);
+    renderMonth(nextMonthCal.querySelector('.calendar-grid'), nextMonth, false);
+  }
+
+  function renderMonth(container, date, isMainCalendar) {
+    // Сначала создаем grid-контейнер для календаря
+    const calendarGrid = container.querySelector('.calendar-grid') || container;
+    calendarGrid.innerHTML = '';
+    
+    // Добавляем заголовки дней недели
+    const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    days.forEach(day => {
+      const dayHeader = document.createElement('div');
+      dayHeader.className = 'calendar-day-header';
+      dayHeader.textContent = day;
+      calendarGrid.appendChild(dayHeader);
+    });
+
+    // Получаем первый день месяца
+    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+    // Получаем последний день предыдущего месяца
+    const lastDayPrev = new Date(date.getFullYear(), date.getMonth(), 0);
+    
+    // Корректируем день недели (0 - понедельник, 6 - воскресенье)
+    let firstDayWeek = firstDay.getDay() - 1;
+    if (firstDayWeek === -1) firstDayWeek = 6;
+
+    // Добавляем дни предыдущего месяца
+    for (let i = firstDayWeek - 1; i >= 0; i--) {
+      const day = lastDayPrev.getDate() - i;
+      addDayToCalendar(calendarGrid, day, true, new Date(date.getFullYear(), date.getMonth() - 1, day), isMainCalendar);
+    }
+
+    // Добавляем дни текущего месяца
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    for (let i = 1; i <= lastDay.getDate(); i++) {
+      addDayToCalendar(calendarGrid, i, false, new Date(date.getFullYear(), date.getMonth(), i), isMainCalendar);
+    }
+
+    // Добавляем дни следующего месяца
+    const remainingDays = 42 - (firstDayWeek + lastDay.getDate());
+    for (let i = 1; i <= remainingDays; i++) {
+      addDayToCalendar(calendarGrid, i, true, new Date(date.getFullYear(), date.getMonth() + 1, i), isMainCalendar);
+    }
+  }
+
+  function addDayToCalendar(container, dayNum, isOtherMonth, fullDate, isMainCalendar) {
+    const dayEl = document.createElement('div');
+    dayEl.className = 'calendar-day' + (isOtherMonth ? ' other-month' : '');
+    
+    // Проверяем, является ли день сегодняшним
+    const today = new Date();
+    if (fullDate.toDateString() === today.toDateString()) {
+      dayEl.classList.add('today');
+    }
+
+    const dateEl = document.createElement('div');
+    dateEl.className = 'date';
+    dateEl.textContent = dayNum;
+    dayEl.appendChild(dateEl);
+
+    // Находим задачи для этого дня
+    const tasks = getTasksForDate(fullDate);
+    if (tasks.length > 0) {
+      const markers = document.createElement('div');
+      markers.className = 'task-markers';
+      
+      tasks.forEach(task => {
+        const marker = document.createElement('div');
+        marker.className = 'task-marker' + 
+          (task.done ? ' done' : '') + 
+          (!task.done && new Date(task.deadline) < today ? ' overdue' : '');
+        markers.appendChild(marker);
+      });
+      
+      dayEl.appendChild(markers);
+
+      // Добавляем всплывающий список задач
+      if (isMainCalendar) {
+        const taskList = document.createElement('div');
+        taskList.className = 'task-list';
+        
+        // Создаем контейнер для контента
+        const taskListContent = document.createElement('div');
+        taskListContent.className = 'task-list-content';
+        
+        tasks.forEach(task => {
+          const taskItem = document.createElement('div');
+          taskItem.className = 'task-list-item' + 
+            (task.done ? ' done' : '') + 
+            (!task.done && new Date(task.deadline) < today ? ' overdue' : '');
+          taskItem.textContent = task.title;
+          
+          // Добавляем обработчик для открытия задачи
+          taskItem.onclick = (e) => {
+            e.stopPropagation();
+            openTaskFromCalendar(task);
+          };
+          
+          taskListContent.appendChild(taskItem);
+        });
+        
+        taskList.appendChild(taskListContent);
+        dayEl.appendChild(taskList);
+      }
+    }
+
+    container.appendChild(dayEl);
+  }
+
+  function getTasksForDate(date) {
+    const tasks = [];
+    const dateStr = date.toISOString().split('T')[0];
+
+    data.boards.forEach(board => {
+      board.columns.forEach(column => {
+        column.tasks.forEach(task => {
+          if (task.deadline) {
+            const taskDate = new Date(task.deadline).toISOString().split('T')[0];
+            if (taskDate === dateStr) {
+              tasks.push({...task, boardId: board.id, columnId: column.id});
+            }
+          }
+        });
+      });
+    });
+
+    return tasks;
+  }
+
+  function openTaskFromCalendar(task) {
+    // Переключаемся на нужную доску
+    data.selectedBoardId = task.boardId;
+    
+    // Находим колонку
+    const board = getSelectedBoard();
+    const column = board.columns.find(col => col.id === task.columnId);
+    
+    if (column) {
+      // Переключаемся на вид досок и открываем диалог задачи
+      showBoardView();
+      openTaskDialog(column, task);
+    }
+  }
+
+  // Добавляем обработчики для календаря
+  const calendarViewEl = document.getElementById('calendar-view');
+  calendarViewEl?.addEventListener('click', () => {
+    isCalendarView = true;
+    render();
+  });
+
+  document.getElementById('prev-month').addEventListener('click', () => {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar();
+  });
+
+  document.getElementById('next-month').addEventListener('click', () => {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  function showBoardView() {
+    isCalendarView = false;
+    render();
+  }
+
+  // Обновляем обработчики для досок
+  boardsEl.addEventListener('click', (e) => {
+    if (e.target.id === 'calendar-view') return;
+    
+    const li = e.target.closest('li');
+    if (!li) return;
+    
+    boardsEl.querySelectorAll('li').forEach(el => el.classList.remove('selected'));
+    li.classList.add('selected');
+    
+    data.selectedBoardId = li.dataset.boardId;
+    isCalendarView = false;
+    saveData();
+    render();
+    
+    if (window.innerWidth <= 768) {
+      document.body.classList.remove('sidebar-open');
+      sidebar.classList.remove('open');
+    }
+  });
 </script>
 
 </body>
