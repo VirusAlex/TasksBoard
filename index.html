@@ -1369,6 +1369,18 @@
     font-size: 16px;
   }
 
+  .calendar-day.selected {
+    background: rgba(52,152,219,0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 20;
+  }
+
+  .dark-theme .calendar-day.selected {
+    background: rgba(52,152,219,0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+
   .task-markers {
     display: flex;
     gap: 4px;
@@ -1418,7 +1430,8 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   }
 
-  .calendar-day:hover .task-list {
+  .calendar-day:hover .task-list,
+  .calendar-day.selected .task-list {
     display: block;
   }
 
@@ -3744,6 +3757,28 @@
       dayEl.classList.add('today');
     }
 
+    if (isMainCalendar) {
+      dayEl.addEventListener('click', (e) => {
+        // Снимаем выделение со всех дней
+        document.querySelectorAll('.calendar-day').forEach(day => {
+          day.classList.remove('selected');
+          // Скрываем все списки задач
+          const taskList = day.querySelector('.task-list');
+          if (taskList) {
+            taskList.style.display = 'none';
+          }
+        });
+        
+        // Выделяем текущий день и показываем его список задач
+        dayEl.classList.add('selected');
+        const taskList = dayEl.querySelector('.task-list');
+        if (taskList) {
+          taskList.style.display = 'block';
+        }
+        e.stopPropagation();
+      });
+    }
+
     const dateEl = document.createElement('div');
     dateEl.className = 'date';
     dateEl.textContent = dayNum;
@@ -3995,6 +4030,22 @@
       document.body.classList.remove('sidebar-open');
       sidebar.classList.remove('open');
     }
+  });
+
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.calendar-day').forEach(day => {
+      day.classList.remove('selected');
+      // Скрываем все списки задач
+      const taskList = day.querySelector('.task-list');
+      if (taskList) {
+        taskList.style.display = 'none';
+      }
+    });
+  });
+
+  document.querySelector('.main-calendar')?.addEventListener('click', (e) => {
+    e.stopPropagation();
   });
 </script>
 
