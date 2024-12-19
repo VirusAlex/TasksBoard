@@ -61,7 +61,7 @@
     flex: 1;
     padding: 10px 0 20px 0;
     align-items: flex-start;
-    height: calc(100% - 80px); /* Учитываем высоту заголовка и кнопки */
+    height: calc(100vh - 80px); /* Учитываем высоту заголовка и кнопки */
   }
 
   /* Стили для кнопок */
@@ -1273,55 +1273,147 @@
   /* Добавляем стили для календаря */
   #calendar-view-content {
     padding: 20px;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: calc(100vh - 100px);
+    min-height: 0;
   }
 
   .calendar-header {
-    margin-bottom: 30px;
+    margin-bottom: 20px;
+    flex-shrink: 0;
   }
 
-  .calendar-nav {
+  .calendar-container {
     display: flex;
-    align-items: center;
-    justify-content: center;
     gap: 20px;
+    flex: 1;
+    min-height: 0;
   }
 
-  .calendar-nav h3 {
-    font-size: 24px;
-    margin: 0;
-    min-width: 200px;
-    text-align: center;
+  .main-calendar-wrapper {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .main-calendar {
-    margin-bottom: 40px;
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-    margin-top: 10px;
+    gap: 6px;
+    flex: 1;
+    min-height: 0;
   }
 
-  .main-calendar .calendar-grid {
-    gap: 8px;
+  .mini-calendars {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+  }
+
+  .mini-calendar {
+    flex-shrink: 0;
+  }
+
+  .mini-calendar h4 {
+    margin: 0 0 5px 0;
+    font-size: 12px;
+    color: #666;
+  }
+
+  .mini-calendar .calendar-grid {
+    gap: 2px;
+  }
+
+  .mini-calendar .calendar-day {
+    padding: 2px;
+    min-height: 25px;
+    border-radius: 3px;
+  }
+
+  .mini-calendar .calendar-day .date {
+    font-size: 11px;
+  }
+
+  .mini-calendar .calendar-day-header {
+    padding: 2px;
+    font-size: 11px;
+  }
+
+  .toggle-mini-calendars {
+    display: none;
+    margin-bottom: 10px;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    color: #666;
+  }
+
+  .dark-theme .toggle-mini-calendars {
+    border-color: rgba(255,255,255,0.1);
+    color: #bdc3c7;
+  }
+
+  @media (max-width: 1024px) {
+    .calendar-container {
+      flex-direction: column;
+    }
+
+    .mini-calendars {
+      width: 100%;
+      flex-direction: row;
+      overflow-x: auto;
+      padding-bottom: 10px;
+    }
+
+    .mini-calendar {
+      min-width: 280px;
+    }
+
+    .toggle-mini-calendars {
+      display: block;
+    }
+
+    .mini-calendars.hidden {
+      display: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .calendar-container {
+      gap: 10px;
+    }
+
+    .mini-calendars {
+      gap: 10px;
+    }
+
+    .mini-calendar {
+      min-width: 250px;
+    }
   }
 
   .calendar-day-header {
     text-align: center;
     font-weight: 500;
     color: #666;
-    padding: 5px;
+    padding: 8px;
+    font-size: 14px;
   }
 
   .dark-theme .calendar-day-header {
@@ -1336,6 +1428,7 @@
     position: relative;
     cursor: pointer;
     transition: all 0.2s ease;
+    min-height: 90px;
   }
 
   .dark-theme .calendar-day {
@@ -1345,7 +1438,7 @@
   .calendar-day:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    z-index: 10; /* Добавляем z-index при наведении */
+    z-index: 10;
   }
 
   .dark-theme .calendar-day:hover {
@@ -1360,15 +1453,6 @@
     border: 2px solid #3498db;
   }
 
-  .calendar-day .date {
-    font-size: 14px;
-    margin-bottom: 5px;
-  }
-
-  .main-calendar .calendar-day .date {
-    font-size: 16px;
-  }
-
   .calendar-day.selected {
     background: rgba(52,152,219,0.1);
     transform: translateY(-2px);
@@ -1379,27 +1463,6 @@
   .dark-theme .calendar-day.selected {
     background: rgba(52,152,219,0.2);
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  }
-
-  .task-markers {
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-
-  .task-marker {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #3498db;
-  }
-
-  .task-marker.overdue {
-    box-shadow: 0 0 0 2px #e74c3c;
-  }
-
-  .task-marker.done {
-    box-shadow: 0 0 0 2px #2ecc71;
   }
 
   .calendar-day .task-list {
@@ -1519,17 +1582,6 @@
     font-weight: 500;
   }
 
-  @media (max-width: 768px) {
-    .mini-calendars {
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .mini-calendar {
-      max-width: none;
-    }
-  }
-
   /* Добавляем стили для статичного меню */
   #static-menu {
     margin: 0 -20px;
@@ -1567,6 +1619,134 @@
 
   .dark-theme .calendar-day .task-list-content::-webkit-scrollbar-thumb {
     background: rgba(255,255,255,0.2);
+  }
+
+  .calendar-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .calendar-nav h3 {
+    font-size: 24px;
+    margin: 0;
+    min-width: 200px;
+    text-align: center;
+  }
+
+  .calendar-nav .icon-button {
+    padding: 8px 12px;
+    font-size: 16px;
+    background: transparent;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    color: #666;
+    transition: all 0.2s ease;
+  }
+
+  .dark-theme .calendar-nav .icon-button {
+    border-color: rgba(255,255,255,0.1);
+    color: #bdc3c7;
+  }
+
+  .calendar-nav .icon-button:hover {
+    background: rgba(52,152,219,0.1);
+  }
+
+  .dark-theme .calendar-nav .icon-button:hover {
+    background: rgba(52,152,219,0.2);
+  }
+
+  .task-markers {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .task-marker {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3498db;
+  }
+
+  .task-marker.overdue {
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.3);
+  }
+
+  .task-marker.done {
+    box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.3);
+  }
+
+  .mini-calendars {
+    width: 280px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+    padding: 0 5px;
+  }
+
+  .mini-calendar {
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  .dark-theme .mini-calendar {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .mini-calendar h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #666;
+    text-align: center;
+  }
+
+  .mini-calendar .calendar-grid {
+    gap: 2px;
+  }
+
+  .mini-calendar .calendar-day {
+    padding: 2px;
+    min-height: 22px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mini-calendar .calendar-day .date {
+    font-size: 11px;
+  }
+
+  .mini-calendar .calendar-day-header {
+    padding: 4px 2px;
+    font-size: 11px;
+  }
+
+  .calendar-day .date {
+    font-size: 16px;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  @media (max-width: 1024px) {
+    .mini-calendars {
+      width: 100%;
+      flex-direction: row;
+      padding: 5px 0;
+    }
+
+    .mini-calendar {
+      min-width: 280px;
+    }
   }
 </style>
 </head>
@@ -1607,17 +1787,25 @@
           <button class="icon-button" id="next-month">▶</button>
         </div>
       </div>
+
+      <button class="toggle-mini-calendars">Показать/скрыть мини-календари</button>
       
-      <div class="main-calendar"></div>
-      
-      <div class="mini-calendars">
-        <div class="mini-calendar prev-month">
-          <h4></h4>
-          <div class="calendar-grid"></div>
+      <div class="calendar-container">
+        <div class="main-calendar-wrapper">
+          <div class="main-calendar">
+            <div class="calendar-grid"></div>
+          </div>
         </div>
-        <div class="mini-calendar next-month">
-          <h4></h4>
-          <div class="calendar-grid"></div>
+        
+        <div class="mini-calendars">
+          <div class="mini-calendar prev-month">
+            <h4></h4>
+            <div class="calendar-grid"></div>
+          </div>
+          <div class="mini-calendar next-month">
+            <h4></h4>
+            <div class="calendar-grid"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -4056,6 +4244,17 @@
 
   document.querySelector('.main-calendar')?.addEventListener('click', (e) => {
     e.stopPropagation();
+  });
+
+  // Добавляем после остальных обработчиков
+  const toggleMiniCalendarsBtn = document.querySelector('.toggle-mini-calendars');
+  const miniCalendarsContainer = document.querySelector('.mini-calendars');
+
+  toggleMiniCalendarsBtn.addEventListener('click', () => {
+    miniCalendarsContainer.classList.toggle('hidden');
+    toggleMiniCalendarsBtn.textContent = miniCalendarsContainer.classList.contains('hidden') 
+      ? 'Показать мини-календари' 
+      : 'Скрыть мини-календари';
   });
 </script>
 
