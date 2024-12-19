@@ -1395,11 +1395,11 @@
   }
 
   .task-marker.overdue {
-    background: #e74c3c;
+    box-shadow: 0 0 0 2px #e74c3c;
   }
 
   .task-marker.done {
-    background: #2ecc71;
+    box-shadow: 0 0 0 2px #2ecc71;
   }
 
   .calendar-day .task-list {
@@ -3795,6 +3795,13 @@
         marker.className = 'task-marker' + 
           (task.done ? ' done' : '') + 
           (!task.done && new Date(task.deadline) < today ? ' overdue' : '');
+        
+        // Устанавливаем цвет маркера в соответствии с цветом задачи
+        const currentColor = (task.done && task.doneColor ? task.doneColor : task.color) || task.info && defaultTaskColors.info || task.done && defaultTaskColors.done || defaultTaskColors.pending;
+        if (currentColor) {
+          marker.style.background = currentColor;
+        }
+        
         markers.appendChild(marker);
       });
       
