@@ -1188,22 +1188,60 @@
   /* Добавляем стили для пульсации */
   @keyframes pulse {
     0% {
-      box-shadow: 0 0 0 0 rgba(215, 29, 9, 0.87);
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(215, 30, 9, 0.918);
     }
-    70% {
-      box-shadow: 0 0 0 10px rgba(231, 76, 60, 0);
+    50% {
+      transform: scale(1.005);
     }
     100% {
-      box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+      transform: scale(1);
+      box-shadow: 0 0 0 14px rgba(215, 29, 9, 0);
     }
   }
 
   .task.deadline-warning {
     animation: pulse 1s infinite;
+    position: relative;
+    z-index: 10;
+  }
+
+  .task.deadline-warning::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 6px;
+    animation: glow 0.5s infinite alternate;
+    pointer-events: none;
+  }
+
+  @keyframes glow {
+    0% {
+      background: rgba(219, 33, 12, 0.459);
+    }
+    100% {
+      background: rgba(215, 29, 9, 0);
+    }
   }
 
   .dark-theme .task.deadline-warning {
     animation: pulse 1s infinite;
+  }
+
+  .dark-theme .task.deadline-warning::before {
+    animation: darkGlow 0.5s infinite alternate;
+  }
+
+  @keyframes darkGlow {
+    0% {
+      background: rgba(215, 30, 9, 0.438);
+    }
+    100% {
+      background: rgba(215, 29, 9, 0);
+    }
   }
 
   /* Стили для индикатора дедлайна */
@@ -2043,6 +2081,29 @@
     resizeObserver.observe(descriptionInput);
   }
 
+  // Функция для форматирования даты и времени
+  function formatDateTime(isoString) {
+    const date = new Date(isoString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Форматируем время
+    const time = date.toLocaleTimeString('ru-RU', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+
+    // Определяем, как показывать дату
+    if (date.toDateString() === today.toDateString()) {
+      return `сегодня в ${time}`;
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return `вчера в ${time}`;
+    } else {
+      return `${date.toLocaleDateString('ru-RU')} в ${time}`;
+    }
+  }
+
   // Функция для форматирования оставшегося времени
   function formatTimeLeft(targetTime) {
     const now = new Date();
@@ -2354,20 +2415,15 @@
     taskHeader.className = 'task-header';
 
     // Добавляем кастомные цвета
-    if (task.color || task.doneColor) {
-      taskEl.style.borderLeftColor = task.done ? task.doneColor : task.color;
+    const currentColor = task.done && task.doneColor ? task.doneColor : task.color;
+    if (currentColor) {
+      taskEl.style.borderLeftColor = currentColor;
       taskEl.dataset.customColor = '';
       
       // Добавляем осветленный фоновый цвет
-      const bgColor = task.done && task.doneColor ? task.doneColor : task.color;
       const alpha = task.done ? '0.1' : '0.05';
-      
-      // Конвертируем HEX в RGB для корректной работы с прозрачностью
-      const rgb = hexToRGB(bgColor);
-      
-      if (!task.done) {
-        taskEl.style.setProperty('--task-bg-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`);
-      }
+      const rgb = hexToRGB(currentColor);
+      taskEl.style.setProperty('--task-bg-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`);
       
       if (task.done && task.doneColor) {
         const doneRgb = hexToRGB(task.doneColor);
@@ -2452,24 +2508,30 @@
       timeIndicators.appendChild(doneTime);
     }
 
-    // Добавляем информацию о дедлайне для невыполненных задач
-    if (!task.done && task.deadline) {
+    // Добавляем информацию о дедлайне
+    if (task.deadline) {
       const deadlineInfo = document.createElement('div');
       deadlineInfo.className = 'task-deadline-info';
       const now = new Date();
       const deadline = new Date(task.deadline);
       
-      if (deadline <= now) {
-        deadlineInfo.classList.add('overdue');
+      if (!task.done) {
+        // Для невыполненных задач показываем оставшееся время
+        if (deadline <= now) {
+          deadlineInfo.classList.add('overdue');
+        }
+        
+        const updateTime = () => {
+          deadlineInfo.textContent = `⌛️ ${formatDeadlineTime(deadline)}`;
+        };
+        
+        updateTime();
+        const intervalId = setInterval(updateTime, 1000);
+        resetTimeIntervals.set(task.id, intervalId);
+      } else {
+        // Для выполненных задач показываем точное время дедлайна
+        deadlineInfo.textContent = `⌛️ ${formatDateTime(deadline)}`;
       }
-      
-      const updateTime = () => {
-        deadlineInfo.textContent = `⏰ ${formatDeadlineTime(deadline)}`;
-      };
-      
-      updateTime();
-      const intervalId = setInterval(updateTime, 1000);
-      resetTimeIntervals.set(task.id, intervalId);
       
       timeIndicators.appendChild(deadlineInfo);
     }
@@ -2547,29 +2609,6 @@
         resolve(dialog.returnValue === 'confirm');
       }, { once: true });
     });
-  }
-
-  // Функция для форматирования даты и времени
-  function formatDateTime(isoString) {
-    const date = new Date(isoString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    // Форматируем время
-    const time = date.toLocaleTimeString('ru-RU', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-
-    // Определяем, как показывать дату
-    if (date.toDateString() === today.toDateString()) {
-      return `сегодня в ${time}`;
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return `вчера в ${time}`;
-    } else {
-      return `${date.toLocaleDateString('ru-RU')} в ${time}`;
-    }
   }
 
   // Добавляем после остальных обработчиков
@@ -3182,6 +3221,7 @@
   }
 
   function hexToRGB(hex) {
+    if (!hex) return { r: 0, g: 0, b: 0 };
     // Убираем # если есть
     hex = hex.replace('#', '');
     
