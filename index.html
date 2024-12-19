@@ -1149,6 +1149,42 @@
     color: #bdc3c7;
   }
 
+  /* Стили для кнопок в сайдбаре */
+  .sidebar-buttons {
+    margin-top: auto;
+    padding-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .secondary-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.1);
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .secondary-btn:hover {
+    background: rgba(0,0,0,0.05);
+    transform: translateY(-1px);
+  }
+
+  .dark-theme .secondary-btn {
+    border-color: rgba(255,255,255,0.1);
+    color: #bdc3c7;
+  }
+
+  .dark-theme .secondary-btn:hover {
+    background: rgba(255,255,255,0.1);
+  }
+
 </style>
 </head>
 <body>
@@ -1159,6 +1195,11 @@
     <h2>Доски</h2>
     <ul id="boards"></ul>
     <button id="add-board-btn" class="add-btn">+ Добавить доску</button>
+    <div class="sidebar-buttons">
+      <button id="export-btn" class="secondary-btn">📤 Экспорт</button>
+      <button id="import-btn" class="secondary-btn">📥 Импорт</button>
+      <input type="file" id="import-file" accept=".json" style="display: none;">
+    </div>
   </div>
 
   <div id="main">
@@ -3049,6 +3090,63 @@
     // Синхронизируем скролл
     lineNumbers.scrollTop = textarea.scrollTop;
   }
+
+  // Добавляем после остальных обработчиков
+  const exportBtn = document.getElementById('export-btn');
+  const importBtn = document.getElementById('import-btn');
+  const importFile = document.getElementById('import-file');
+
+  // Функция экспорта данных
+  exportBtn.addEventListener('click', () => {
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `taskboard-backup-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // Функция импорта данных
+  importBtn.addEventListener('click', () => {
+    importFile.click();
+  });
+
+  importFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        
+        // Проверяем структуру данных
+        if (!importedData.boards || !Array.isArray(importedData.boards)) {
+          throw new Error('Неверный формат файла');
+        }
+
+        const confirmed = await showConfirmDialog(
+          'Импорт заменит все текущие данные. Продолжить?'
+        );
+
+        if (confirmed) {
+          data = importedData;
+          saveData();
+          render();
+        }
+      } catch (err) {
+        alert('Ошибка при импорте файла: ' + err.message);
+      }
+      // Очищаем input для возможности повторного импорта того же файла
+      importFile.value = '';
+    };
+    reader.readAsText(file);
+  });
 
 </script>
 
