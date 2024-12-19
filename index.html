@@ -1309,12 +1309,12 @@
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 10px;
+    gap: 4px;
     margin-top: 10px;
   }
 
   .main-calendar .calendar-grid {
-    gap: 15px;
+    gap: 8px;
   }
 
   .calendar-day-header {
@@ -3963,14 +3963,17 @@
 
   function getTasksForDate(date) {
     const tasks = [];
-    const dateStr = date.toISOString().split('T')[0];
+    // Устанавливаем время в начало дня для корректного сравнения
+    const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
     data.boards.forEach(board => {
       board.columns.forEach(column => {
         column.tasks.forEach(task => {
           if (task.deadline) {
-            const taskDate = new Date(task.deadline).toISOString().split('T')[0];
-            if (taskDate === dateStr) {
+            const taskDate = new Date(task.deadline);
+            // Устанавливаем время в начало дня для задачи
+            const taskStartOfDay = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
+            if (taskStartOfDay.getTime() === startOfDay.getTime()) {
               tasks.push({...task, boardId: board.id, columnId: column.id});
             }
           }
