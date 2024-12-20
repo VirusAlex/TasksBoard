@@ -1941,11 +1941,11 @@
 
   let data = JSON.parse(localStorage.getItem('taskBoardsData') || 'null') || {
     boards: [],
-    selectedBoardId: null
+    selectedBoardId: null,
+    isCalendarView: false
   };
   let resetTimeIntervals = new Map();
   let currentDate = new Date();
-  let isCalendarView = false;
 
   // Получаем элементы
   const boardsEl = document.getElementById('boards');
@@ -2168,7 +2168,7 @@
     renderBoardsList();
     const calendarViewEl = document.getElementById('calendar-view');
     
-    if (isCalendarView) {
+    if (data.isCalendarView) {
       renderCalendar();
       calendarViewEl?.classList.add('selected');
       document.getElementById('board-view').style.display = 'none';
@@ -4108,7 +4108,9 @@
   // Добавляем обработчики для календаря
   const calendarViewEl = document.getElementById('calendar-view');
   calendarViewEl?.addEventListener('click', () => {
-    isCalendarView = true;
+    data.isCalendarView = true;
+    data.selectedBoardId = null;
+    saveData();
     render();
   });
 
@@ -4123,7 +4125,8 @@
   });
 
   function showBoardView() {
-    isCalendarView = false;
+    data.isCalendarView = false;
+    saveData();
     render();
   }
 
@@ -4138,7 +4141,7 @@
     li.classList.add('selected');
     
     data.selectedBoardId = li.dataset.boardId;
-    isCalendarView = false;
+    data.isCalendarView = false;
     saveData();
     render();
     
