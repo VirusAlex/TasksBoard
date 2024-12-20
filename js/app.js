@@ -93,7 +93,7 @@ function initApp() {
     boardTitleEl.textContent = board.name;
     boardTitleEl.style.cursor = 'pointer';
     boardTitleEl.title = 'Дважды щелкните для редактирования';
-    
+
     // Добавляем обработчик двойного клика для редактирования
     boardTitleEl.addEventListener('dblclick', () => {
       openBoardDialog(board);
@@ -106,15 +106,15 @@ function initApp() {
       colEl.className = 'column';
       colEl.dataset.columnId = column.id;
       colEl.draggable = true;
-      
+
       // Обновляем структуру заголовка колонки
       const headerEl = document.createElement('div');
       headerEl.className = 'column-header';
-      
+
       const titleEl = document.createElement('h3');
       titleEl.textContent = column.name;
       headerEl.appendChild(titleEl);
-      
+
       const stats = getColumnStats(column);
       if (stats.total > 0) {
         const statsEl = document.createElement('div');
@@ -126,7 +126,7 @@ function initApp() {
         `;
         headerEl.appendChild(statsEl);
       }
-      
+
       colEl.appendChild(headerEl);
 
       headerEl.addEventListener('dblclick', () => {
@@ -140,7 +140,7 @@ function initApp() {
           e.preventDefault();
           return;
         }
-        
+
         colEl.classList.add('dragging');
         // Устанавливаем данные для переноса
         e.dataTransfer.setData('text/plain', colEl.dataset.columnId);
@@ -150,7 +150,7 @@ function initApp() {
         colEl.classList.remove('dragging');
         removeAllDropIndicators();
       });
-      
+
       // ================================
       // Обработчики Drag & Drop тасков внутри колонки
       // ================================
@@ -159,7 +159,7 @@ function initApp() {
         const draggingTask = document.querySelector('.task.dragging');
         const draggingCol = document.querySelector('.column.dragging');
         if (!draggingTask && !draggingCol) return;
-        
+
         if (draggingTask) {
           showTaskDropIndicator(e, colEl, draggingTask);
         } else {
@@ -210,26 +210,26 @@ function initApp() {
   function moveTaskToColumn(taskId, newColumnId, position = -1) {
     const board = getSelectedBoard();
     const task = findTaskById(taskId);
-    
+
     if (!task) return;
-    
+
     // Удаляем задачу из текущего места
     removeTaskFromCurrentPosition(task);
-    
+
     // Сбрасываем parentId, так как задача теперь не сабтаск
     task.parentId = null;
-    
+
     // Находим целевую колонку
     const targetColumn = board.columns.find(col => col.id === newColumnId);
     if (!targetColumn) return;
-    
+
     // Вставляем задачу в нужную позицию
     if (position >= 0) {
       targetColumn.tasks.splice(position, 0, task);
     } else {
       targetColumn.tasks.push(task);
     }
-    
+
     saveData();
     render();
   }
@@ -246,7 +246,7 @@ function initApp() {
   function render() {
     renderBoardsList();
     const calendarViewEl = document.getElementById('calendar-view');
-    
+
     if (data.isCalendarView) {
       renderCalendar();
       calendarViewEl?.classList.add('selected');
@@ -282,13 +282,13 @@ function initApp() {
 
   // Добавляем в начало скрипта, после объявления переменных
   const themeToggle = document.getElementById('theme-toggle');
-  
+
   // Загружаем сохраненную тему
   const savedTheme = localStorage.getItem('theme');
   if (savedTheme === 'dark') {
     document.body.classList.add('dark-theme');
     themeToggle.querySelector('span').textContent = '☀️';
-  } else {  
+  } else {
     themeToggle.querySelector('span').textContent = '🌙';
   }
 
@@ -368,7 +368,7 @@ function initApp() {
     taskColorsEl.addEventListener('click', (e) => {
       const option = e.target.closest('.color-option');
       if (!option) return;
-      
+
       const color = option.dataset.color;
       updateSelectedColor(taskColorsEl, color);
     });
@@ -376,7 +376,7 @@ function initApp() {
     doneColorsEl.addEventListener('click', (e) => {
       const option = e.target.closest('.color-option');
       if (!option) return;
-      
+
       const color = option.dataset.color;
       updateSelectedColor(doneColorsEl, color);
     });
@@ -407,32 +407,32 @@ function initApp() {
     // Обновляем заголовок и хлебные крошки
     const breadcrumbsEl = dialog.querySelector('.dialog-breadcrumbs');
     const titleEl = dialog.querySelector('h3');
-    
+
     // Формируем путь
     let breadcrumbs = [board.name, column.name];
-    
+
     if (existingTask && existingTask.parentId) {
       const parentPath = getTaskPath(existingTask);
       breadcrumbs = breadcrumbs.concat(parentPath);
     }
-    
+
     breadcrumbsEl.textContent = breadcrumbs.join(' → ');
     titleEl.textContent = existingTask ? existingTask.title : 'Новая задача';
-    
+
     // Обновляем текст кнопки в зависимости от режима
     submitButton.textContent = existingTask ? 'Сохранить' : 'Создать';
 
     // Обновляем видимость поля дедлайна при изменении повторяемости
     const handleRepeatChange = () => {
-        resetTimeGroup.style.display = repeatCheckbox.checked ? 'block' : 'none';
-        if (repeatCheckbox.checked) {
-          deadlineGroup.style.display = 'none';
-          deadlineEnabled.checked = false;
-          deadlineInputs.style.display = 'none';
-        } else {
-            deadlineGroup.style.display = '';
-            resetTimeInput.value = '';
-        }
+      resetTimeGroup.style.display = repeatCheckbox.checked ? 'block' : 'none';
+      if (repeatCheckbox.checked) {
+        deadlineGroup.style.display = 'none';
+        deadlineEnabled.checked = false;
+        deadlineInputs.style.display = 'none';
+      } else {
+        deadlineGroup.style.display = '';
+        resetTimeInput.value = '';
+      }
     };
 
     // Обработчик изменения чекбокса дедлайна
@@ -448,35 +448,35 @@ function initApp() {
 
     // Обновляем видимость поля дедлайна при изменении типа задачи
     const handleInfoChange = () => {
-        if (infoCheckbox.checked) {
-          // Если задача стала информационной - сбрасываем все связанные поля
-            repeatCheckbox.checked = false;
-            resetTimeGroup.style.display = 'none';
-            resetTimeInput.value = '';
-            // Скрываем группу с повторением
-            repeatCheckbox.closest('.form-group').style.display = 'none';
-            deadlineGroup.style.display = 'none';
-            deadlineEnabled.checked = false;
-            deadlineInputs.style.display = 'none';
-        } else {
-            // Показываем группу с повторением обратно
-            repeatCheckbox.closest('.form-group').style = '';
-            deadlineGroup.style.display = '';
-        }
+      if (infoCheckbox.checked) {
+        // Если задача стала информационной - сбрасываем все связанные поля
+        repeatCheckbox.checked = false;
+        resetTimeGroup.style.display = 'none';
+        resetTimeInput.value = '';
+        // Скрываем группу с повторением
+        repeatCheckbox.closest('.form-group').style.display = 'none';
+        deadlineGroup.style.display = 'none';
+        deadlineEnabled.checked = false;
+        deadlineInputs.style.display = 'none';
+      } else {
+        // Показываем группу с повторением обратно
+        repeatCheckbox.closest('.form-group').style = '';
+        deadlineGroup.style.display = '';
+      }
     };
 
     // Добавляем обработчики
     repeatCheckbox.addEventListener('change', handleRepeatChange);
     infoCheckbox.addEventListener('change', handleInfoChange);
     infoCheckbox.addEventListener('change', updateColorGroups);
-    
+
     // Удаляем обработчики при закрытии диалога
     const cleanup = () => {
-        repeatCheckbox.removeEventListener('change', handleRepeatChange);
-        infoCheckbox.removeEventListener('change', handleInfoChange);
-        dialog.removeEventListener('close', cleanup);
+      repeatCheckbox.removeEventListener('change', handleRepeatChange);
+      infoCheckbox.removeEventListener('change', handleInfoChange);
+      dialog.removeEventListener('close', cleanup);
     };
-    
+
     dialog.addEventListener('close', cleanup);
 
     // При открытии диалога проверяем начальное состояние
@@ -521,7 +521,7 @@ function initApp() {
       deleteBtn.style.display = 'block';
       deleteBtn.onclick = async () => {
         const confirmed = await showConfirmDialog(
-          `Вы уверены, что хотите удалить задачу "${existingTask.title}"?`
+            `Вы уверены, что хотите удалить задачу "${existingTask.title}"?`
         );
         if (confirmed) {
           const taskIndex = column.tasks.findIndex(t => t.id === existingTask.id);
@@ -551,7 +551,7 @@ function initApp() {
           deadline = new Date(deadlineDate.value + 'T' + deadlineTime.value).toISOString();
         }
       }
-      
+
       const taskData = {
         id: existingTask ? existingTask.id : generateId(),
         title: titleInput.value.trim(),
@@ -612,12 +612,12 @@ function initApp() {
               const [hours, minutes] = task.resetTime.split(':');
               const resetTime = new Date(doneDate);
               resetTime.setHours(hours, minutes, 0, 0);
-              
+
               // Если время сброса меньше времени выполнения - переносим на следующий день
               if (resetTime <= doneDate) {
                 resetTime.setDate(resetTime.getDate() + 1);
               }
-              
+
               shouldReset = now >= resetTime;
             } else {
               // Если время не задано, сброс в начале следующего дня
@@ -656,7 +656,7 @@ function initApp() {
     const submitButton = form.querySelector('button[type="submit"]');
     const titleEl = dialog.querySelector('h3');
     const board = getSelectedBoard();
-    
+
     if (!board) return;
 
     // Настраиваем диалог
@@ -676,7 +676,7 @@ function initApp() {
       deleteBtn.style.display = 'block';
       deleteBtn.onclick = async () => {
         const confirmed = await showConfirmDialog(
-          `Вы уверены, что хотите удалить колонку "${existingColumn.name}" со всеми задачами?`
+            `Вы уверены, что хотите удалить колонку "${existingColumn.name}" со всеми задачами?`
         );
         if (confirmed) {
           const board = getSelectedBoard();
@@ -696,7 +696,7 @@ function initApp() {
     // Обработчик отправки формы
     form.onsubmit = (e) => {
       e.preventDefault();
-      
+
       const name = nameInput.value.trim();
       if (!name) return;
 
@@ -745,7 +745,7 @@ function initApp() {
       deleteBtn.style.display = 'block';
       deleteBtn.onclick = async () => {
         const confirmed = await showConfirmDialog(
-          `Вы уверены, что хотите удалить доску "${existingBoard.name}" со всеми колонками и задачами?`
+            `Вы уверены, что хотите удалить доску "${existingBoard.name}" со всеми колонками и задачами?`
         );
         if (confirmed) {
           const boardIndex = data.boards.findIndex(b => b.id === existingBoard.id);
@@ -754,8 +754,8 @@ function initApp() {
             // Выбираем следующую доску или первую, если удаляем последнюю
             if (data.boards.length > 0) {
               data.selectedBoardId = data.boards[boardIndex]
-                ? data.boards[boardIndex].id
-                : data.boards[0].id;
+                  ? data.boards[boardIndex].id
+                  : data.boards[0].id;
             } else {
               data.selectedBoardId = null;
             }
@@ -772,7 +772,7 @@ function initApp() {
     // Обработчик отправки формы
     form.onsubmit = (e) => {
       e.preventDefault();
-      
+
       const name = nameInput.value.trim();
       if (!name) return;
 
@@ -817,7 +817,7 @@ function initApp() {
 
     // Обновляем состояние карточки
     taskEl.className = 'task' + (task.done ? ' done' : '');
-    
+
     // Обновляем чекбокс
     const checkbox = taskEl.querySelector('input[type="checkbox"]');
     if (checkbox) checkbox.checked = task.done;
@@ -829,13 +829,13 @@ function initApp() {
     if (task.repeating && task.done) {
       const newResetInfo = document.createElement('div');
       newResetInfo.className = 'task-reset-info';
-      
+
       if (task.resetTime) {
         newResetInfo.textContent = formatTimeLeft(task.resetTime);
       } else {
         newResetInfo.textContent = formatTimeLeft('00:00');
       }
-      
+
       taskEl.appendChild(newResetInfo);
     }
   }
@@ -843,14 +843,14 @@ function initApp() {
   function renderTask(task, container) {
     const taskEl = document.createElement('div');
     taskEl.className = 'task' + (task.done ? ' done' : '') + (task.parentId ? ' subtask' : '') + (task.isInfo ? ' info' : '');
-    
+
     // Добавляем класс для пульсации, если есть дедлайн и он скоро
     if (!task.done && task.deadline) {
       const deadline = new Date(task.deadline);
       const now = new Date();
       const diff = deadline - now;
       const hourInMs = 60 * 60 * 1000;
-      
+
       if (diff < hourInMs || diff < 0) {
         taskEl.classList.add('deadline-warning');
       }
@@ -868,18 +868,18 @@ function initApp() {
     if (currentColor) {
       taskEl.style.borderLeftColor = currentColor;
       taskEl.dataset.customColor = '';
-      
+
       // Добавляем осветленный фоновый цвет
       const alpha = task.done ? '0.1' : '0.05';
       const rgb = hexToRGB(currentColor);
       taskEl.style.setProperty('--task-bg-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`);
-      
+
       if (task.done && task.doneColor) {
         const doneRgb = hexToRGB(task.doneColor);
         taskEl.style.setProperty('--task-done-bg-color', `rgba(${doneRgb.r}, ${doneRgb.g}, ${doneRgb.b}, 0.15)`);
       }
     }
-    
+
     // Добавляем чекбокс
     if (!task.isInfo) {
       const checkbox = document.createElement('input');
@@ -898,23 +898,23 @@ function initApp() {
       };
       taskHeader.appendChild(checkbox);
     }
-    
+
     // Добавляем контент задачи
     const taskContent = document.createElement('div');
     taskContent.className = 'task-content';
-    
+
     // Заголовок
     const title = document.createElement('div');
     renderLinkedText(title, task.title, 'task-title');
     taskContent.appendChild(title);
-    
+
     // Описание
     if (task.description) {
       const descEl = document.createElement('div');
       renderLinkedText(descEl, task.description, 'task-description');
       taskContent.appendChild(descEl);
     }
-    
+
     taskHeader.appendChild(taskContent);
     taskEl.appendChild(taskHeader);
 
@@ -928,12 +928,12 @@ function initApp() {
     }
 
     container.appendChild(taskEl);
-    
+
     // Добавляем контейнер для сабтасков, если они есть
     if (task.subtasks && task.subtasks.length > 0) {
       const subtasksContainer = document.createElement('div');
       subtasksContainer.className = 'subtasks-container';
-      
+
       // Рендерим каждый сабтаск внутри контейнера
       task.subtasks.forEach(subtaskId => {
         const subtask = findTaskById(subtaskId);
@@ -941,7 +941,7 @@ function initApp() {
           renderTask(subtask, subtasksContainer);
         }
       });
-      
+
       taskEl.appendChild(subtasksContainer);
     }
 
@@ -963,17 +963,17 @@ function initApp() {
       deadlineInfo.className = 'task-deadline-info';
       const now = new Date();
       const deadline = new Date(task.deadline);
-      
+
       if (!task.done) {
         // Для невыполненных задач показываем оставшееся время
         if (deadline <= now) {
           deadlineInfo.classList.add('overdue');
         }
-        
+
         const updateTime = () => {
           deadlineInfo.textContent = `⌛️ ${formatDeadlineTime(deadline)}`;
         };
-        
+
         updateTime();
         const intervalId = setInterval(updateTime, 1000);
         resetTimeIntervals.set(task.id, intervalId);
@@ -981,7 +981,7 @@ function initApp() {
         // Для выполненных задач показываем точное время дедлайна
         deadlineInfo.textContent = `⌛️ ${formatDateTime(deadline)}`;
       }
-      
+
       timeIndicators.appendChild(deadlineInfo);
     }
     // Добавляем информацию о сбросе для повторяющихся задач
@@ -991,17 +991,17 @@ function initApp() {
 
       // Очищаем предыдущий интервал для этой задачи, если он был
       if (resetTimeIntervals.has(task.id)) {
-          clearInterval(resetTimeIntervals.get(task.id));
+        clearInterval(resetTimeIntervals.get(task.id));
       }
-      
+
       const updateTime = () => {
         resetInfo.textContent = formatTimeLeft(task.resetTime || '00:00');
       };
-      
+
       updateTime();
       const intervalId = setInterval(updateTime, 1000);
       resetTimeIntervals.set(task.id, intervalId);
-      
+
       timeIndicators.appendChild(resetInfo);
     }
 
@@ -1010,7 +1010,7 @@ function initApp() {
       taskEl.appendChild(timeIndicators);
     }
 
-    
+
     // Если есть сабтаски, добавляем кнопку сворачивания
     if (task.subtasks && task.subtasks.length > 0) {
       const expandToggle = document.createElement('div'); // меняем span на div
@@ -1018,16 +1018,16 @@ function initApp() {
       if (task.collapsed) {
         expandToggle.classList.add('collapsed');
       }
-      
+
       // Добавляем пустой элемент для первой колонки грида
       const spacerLeft = document.createElement('div');
       expandToggle.appendChild(spacerLeft);
-      
+
       // Добавляем контейнер для стрелки
       const toggleArrow = document.createElement('span');
       toggleArrow.className = 'toggle-arrow';
       expandToggle.appendChild(toggleArrow);
-      
+
       // Добавляем статистику
       const stats = getSubtasksStats(task);
       if (stats.total > 0) {
@@ -1044,7 +1044,7 @@ function initApp() {
         const spacerRight = document.createElement('div');
         expandToggle.appendChild(spacerRight);
       }
-      
+
       expandToggle.onclick = (e) => {
         e.stopPropagation();
         const subtasksContainer = taskEl.querySelector('.subtasks-container');
@@ -1052,7 +1052,7 @@ function initApp() {
           const isExpanded = !expandToggle.classList.contains('collapsed');
           expandToggle.classList.toggle('collapsed');
           subtasksContainer.style.display = isExpanded ? 'none' : 'block';
-          
+
           // Сохраняем состояние
           task.collapsed = isExpanded;
           saveData();
@@ -1076,9 +1076,9 @@ function initApp() {
     const dialog = document.getElementById('confirm-dialog');
     const messageEl = dialog.querySelector('#confirm-message');
     messageEl.textContent = message;
-    
+
     dialog.showModal();
-    
+
     return new Promise((resolve) => {
       dialog.addEventListener('close', () => {
         resolve(dialog.returnValue === 'confirm');
@@ -1128,8 +1128,8 @@ function initApp() {
 
     // Если есть выделенный текст, используем его как текст ссылки
     const selectedText = description.value.substring(
-      description.selectionStart,
-      description.selectionEnd
+        description.selectionStart,
+        description.selectionEnd
     );
     if (selectedText) {
       textInput.value = selectedText;
@@ -1156,10 +1156,10 @@ function initApp() {
       // Вставляем ссылку в текст
       const start = description.selectionStart;
       const end = description.selectionEnd;
-      description.value = 
-        description.value.substring(0, start) +
-        link +
-        description.value.substring(end);
+      description.value =
+          description.value.substring(0, start) +
+          link +
+          description.value.substring(end);
     }
   }
 
@@ -1167,16 +1167,16 @@ function initApp() {
   function formatDescription(text) {
     // Сначала обрабатываем Markdown-ссылки [text](url)
     let formatted = text.replace(
-      /\[([^\]]+)\]\(([^)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+        /\[([^\]]+)\]\(([^)]+)\)/g,
+        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
     );
-    
+
     // Затем обрабатываем простые URL, исключая уже обработанные в тегах <a>
     formatted = formatted.replace(
-      /(?<!["=])(https?:\/\/[^\s<]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+        /(?<!["=])(https?:\/\/[^\s<]+)/g,
+        '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
     );
-    
+
     return formatted;
   }
 
@@ -1192,10 +1192,10 @@ function initApp() {
     if (!board) {
       return null;
     }
-    
+
     // Создаем плоский массив всех задач
     const allTasks = [];
-    
+
     // Собираем все задачи из всех колонок
     for (const column of board.columns) {
       for (const task of column.tasks) {
@@ -1211,7 +1211,7 @@ function initApp() {
 
   function collectSubtasks(parentTask, tasksArray) {
     if (!parentTask.subtasks) return;
-    
+
     for (const subtaskId of parentTask.subtasks) {
       // Ищем сабтаск в существующем массиве задач
       const subtask = tasksArray.find(t => t.id === subtaskId);
@@ -1232,43 +1232,43 @@ function initApp() {
     if (!board) {
       return;
     }
-    
+
     const task = findTaskById(taskId);
     const parentTask = findTaskById(parentId);
     if (!task || !parentTask) {
       return;
     }
-    
+
     // Проверяем циклические зависимости
     if (isTaskAncestor(taskId, parentId)) {
       return;
     }
-    
+
     // Находим колонку с родительской задачей
-    const parentColumn = board.columns.find(col => 
-      col.tasks.some(t => t.id === parentId)
+    const parentColumn = board.columns.find(col =>
+        col.tasks.some(t => t.id === parentId)
     );
-    
+
     if (!parentColumn) {
       return;
     }
-    
+
     // Удаляем задачу из текущего места
     removeTaskFromCurrentPosition(task);
 
     // Обновляем связи в оригинальной задаче
     task.parentId = parentId;
-    
+
     // Инициализируем массив subtasks для родительской задачи, если его нет
     if (!parentTask.subtasks) {
       parentTask.subtasks = [];
     }
-    
+
     // Добавляем ID задачи к родительской задаче
     if (!parentTask.subtasks.includes(task.id)) {
       parentTask.subtasks.push(task.id);
     }
-    
+
     // Добавляем задачу в ту же колонку, где находится родительская задача
     const taskIndex = parentColumn.tasks.findIndex(t => t.id === parentId);
     if (taskIndex !== -1) {
@@ -1278,7 +1278,7 @@ function initApp() {
       // Если родительская задача не найдена, добавляем в конец
       parentColumn.tasks.push(task);
     }
-    
+
     // Находим нужную доску
     const boardIndex = data.boards.findIndex(b => b.id === board.id);
     if (boardIndex !== -1) {
@@ -1301,21 +1301,21 @@ function initApp() {
     if (!task) {
       return;
     }
-    
+
     const board = getSelectedBoard();
     if (!board) {
       return;
     }
-    
+
     // Если это сабтаск, удаляем из родителя
     if (task.parentId) {
       const parentTask = findTaskById(task.parentId);
-      
+
       if (parentTask && parentTask.subtasks) {
         parentTask.subtasks = parentTask.subtasks.filter(id => id !== task.id);
       }
     }
-    
+
     // Удаляем из колонки
     for (const column of board.columns) {
       const index = column.tasks.findIndex(t => t.id === task.id);
@@ -1356,7 +1356,7 @@ function initApp() {
     // Добавляем обработчик двойного клика для редактирования
     taskEl.addEventListener('dblclick', (e) => {
       e.stopPropagation(); // Останавливаем всплытие события
-      
+
       const task = findTaskById(taskEl.dataset.taskId);
       if (task) {
         // Находим колонку, в которой находится задача (или её родитель, если это сабтаск)
@@ -1366,7 +1366,7 @@ function initApp() {
             return !!(task.parentId && t.id === task.parentId);
           });
         });
-        
+
         if (column) {
           openTaskDialog(column, task);
         }
@@ -1378,7 +1378,7 @@ function initApp() {
   function getTaskPath(task) {
     const path = [];
     let currentTask = task;
-    
+
     // Собираем путь от текущей задачи до корневой
     while (currentTask && currentTask.parentId) {
       const parentTask = findTaskById(currentTask.parentId);
@@ -1389,7 +1389,7 @@ function initApp() {
         break;
       }
     }
-    
+
     return path;
   }
 
@@ -1424,11 +1424,11 @@ function initApp() {
     try {
       const draggedTaskId = draggingTask.dataset.taskId;
       const board = getSelectedBoard();
-      
+
       // Определяем тип контейнера и цели
       const isColumn = container.classList.contains('column');
       const targetTask = container.classList.contains('task') ? container : null;
-      
+
       // Получаем колонку
       const colEl = isColumn ? container : container.closest('.column');
       const columnId = colEl.dataset.columnId;
@@ -1487,9 +1487,9 @@ function initApp() {
         // учесть, если перетаскиваемый таск уже в этой колонке
         let finalIndex = nextTask ? nextIndex : tasks.length;
         if (currentIndex !== -1) {
-            finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
+          finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
         }
-        
+
         moveTaskToColumn(draggedTaskId, columnId, finalIndex);
       }
     } finally {
@@ -1518,7 +1518,7 @@ function initApp() {
 
       const nextCol = indicator.nextElementSibling;
       const nextColIndex = nextCol ? board.columns.findIndex(col => col.id === nextCol.dataset.columnId) : -1;
-      
+
       let finalIndex = nextCol ? nextColIndex : board.columns.length;
       if (currentIndex !== -1) {
         finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
@@ -1542,28 +1542,28 @@ function initApp() {
     e.stopPropagation();
     // Удаляем существующие индикаторы
     removeAllDropIndicators();
-    
+
     const indicator = document.createElement('div');
     indicator.className = 'column-drop-indicator';
-    
+
     // Находим ближайшую колонку к курсору
     const columns = Array.from(document.querySelectorAll('.column'));
     const mouseX = e.clientX;
     let closestColumn = null;
     let minDistance = Infinity;
-    
+
     columns.forEach(col => {
       if (col === draggingCol) return;
       const rect = col.getBoundingClientRect();
       const colMiddle = rect.left + rect.width / 2;
       const distance = Math.abs(mouseX - colMiddle);
-      
+
       if (distance < minDistance) {
         minDistance = distance;
         closestColumn = col;
       }
     });
-    
+
     if (closestColumn) {
       const rect = closestColumn.getBoundingClientRect();
       if (mouseX < rect.left + rect.width / 2) {
@@ -1699,22 +1699,22 @@ function initApp() {
     if (!hex) return { r: 0, g: 0, b: 0 };
     // Убираем # если есть
     hex = hex.replace('#', '');
-    
+
     // Парсим значения RGB
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
-    
+
     return { r, g, b };
   }
 
   function updateLineNumbers() {
     const textarea = document.getElementById('task-description');
     const lineNumbers = textarea.closest('.description-container').querySelector('.line-numbers');
-    
+
     // Разбиваем текст на строки по реальным переносам
     const lines = textarea.value.split('\n');
-    
+
     // Создаем массив номеров, где для каждой строки считаем её визуальную высоту
     const numbers = [];
     const tempDiv = document.createElement('div');
@@ -1737,7 +1737,7 @@ function initApp() {
       tempDiv.textContent = line;
       const lineHeight = parseInt(getComputedStyle(textarea).lineHeight);
       const visualLines = Math.ceil(tempDiv.clientHeight / lineHeight);
-      
+
       // Добавляем номер только для первой визуальной строки
       numbers.push(lineNumber);
       // Для остальных визуальных строк добавляем пустые строки
@@ -1748,13 +1748,13 @@ function initApp() {
     });
 
     document.body.removeChild(tempDiv);
-    
+
     // Обновляем содержимое
     lineNumbers.textContent = numbers.join('\n');
-    
+
     // Синхронизируем высоту
     //lineNumbers.style.height = `${textarea.scrollHeight}px`;
-    
+
     // Синхронизируем скролл
     lineNumbers.scrollTop = textarea.scrollTop;
   }
@@ -1769,7 +1769,7 @@ function initApp() {
     const dataStr = JSON.stringify(data, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
     const a = document.createElement('a');
     a.href = url;
     a.download = `taskboard-backup-${new Date().toISOString().slice(0,10)}.json`;
@@ -1792,14 +1792,14 @@ function initApp() {
     reader.onload = async (e) => {
       try {
         const importedData = JSON.parse(e.target.result);
-        
+
         // Проверяем структуру данных
         if (!importedData.boards || !Array.isArray(importedData.boards)) {
           throw new Error('Неверный формат файла');
         }
 
         const confirmed = await showConfirmDialog(
-          'Импорт заменит все текущие данные. Продолжить?'
+            'Импорт заменит все текущие данные. Продолжить?'
         );
 
         if (confirmed) {
@@ -1821,14 +1821,14 @@ function initApp() {
     const mainCalendar = document.querySelector('.main-calendar');
     const prevMonthCal = document.querySelector('.mini-calendar.prev-month');
     const nextMonthCal = document.querySelector('.mini-calendar.next-month');
-    
+
     // Очищаем и подготавливаем контейнер основного календаря
     mainCalendar.innerHTML = '<div class="calendar-grid"></div>';
-    
+
     // Обновляем заголовок текущего месяца
-    document.getElementById('current-month').textContent = currentDate.toLocaleString('ru', { 
-      month: 'long', 
-      year: 'numeric' 
+    document.getElementById('current-month').textContent = currentDate.toLocaleString('ru', {
+      month: 'long',
+      year: 'numeric'
     }).replace(/^./, str => str.toUpperCase());
 
     // Создаем даты для предыдущего и следующего месяцев
@@ -1836,14 +1836,14 @@ function initApp() {
     const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
 
     // Обновляем заголовки мини-календарей
-    prevMonthCal.querySelector('h4').textContent = prevMonth.toLocaleString('ru', { 
-      month: 'long', 
-      year: 'numeric' 
+    prevMonthCal.querySelector('h4').textContent = prevMonth.toLocaleString('ru', {
+      month: 'long',
+      year: 'numeric'
     }).replace(/^./, str => str.toUpperCase());
 
-    nextMonthCal.querySelector('h4').textContent = nextMonth.toLocaleString('ru', { 
-      month: 'long', 
-      year: 'numeric' 
+    nextMonthCal.querySelector('h4').textContent = nextMonth.toLocaleString('ru', {
+      month: 'long',
+      year: 'numeric'
     }).replace(/^./, str => str.toUpperCase());
 
     // Рендерим календари
@@ -1856,7 +1856,7 @@ function initApp() {
     // Сначала создаем grid-контейнер для календаря
     const calendarGrid = container.querySelector('.calendar-grid') || container;
     calendarGrid.innerHTML = '';
-    
+
     // Добавляем заголовки дней недели
     const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     days.forEach(day => {
@@ -1870,7 +1870,7 @@ function initApp() {
     const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
     // Получаем последний день предыдущего месяца
     const lastDayPrev = new Date(date.getFullYear(), date.getMonth(), 0);
-    
+
     // Корректируем день недели (0 - понедельник, 6 - воскресенье)
     let firstDayWeek = firstDay.getDay() - 1;
     if (firstDayWeek === -1) firstDayWeek = 6;
@@ -1897,7 +1897,7 @@ function initApp() {
   function addDayToCalendar(container, dayNum, isOtherMonth, fullDate, isMainCalendar) {
     const dayEl = document.createElement('div');
     dayEl.className = 'calendar-day' + (isOtherMonth ? ' other-month' : '');
-    
+
     // Проверяем, является ли день сегодняшним
     const today = new Date();
     if (fullDate.toDateString() === today.toDateString()) {
@@ -1915,7 +1915,7 @@ function initApp() {
             taskList.style.display = 'none';
           }
         });
-        
+
         // Выделяем текущий день и показываем его список задач
         dayEl.classList.add('selected');
         const taskList = dayEl.querySelector('.task-list');
@@ -1936,44 +1936,44 @@ function initApp() {
     if (tasks.length > 0) {
       const markers = document.createElement('div');
       markers.className = 'task-markers';
-      
+
       tasks.forEach(task => {
         const marker = document.createElement('div');
-        marker.className = 'task-marker' + 
-          (task.done ? ' done' : '') + 
-          (!task.done && new Date(task.deadline) < today ? ' overdue' : '');
-        
+        marker.className = 'task-marker' +
+            (task.done ? ' done' : '') +
+            (!task.done && new Date(task.deadline) < today ? ' overdue' : '');
+
         // Устанавливаем цвет маркера в соответствии с цветом задачи
         const currentColor = (task.done && task.doneColor ? task.doneColor : task.color) || task.info && defaultTaskColors.info || task.done && defaultTaskColors.done || defaultTaskColors.pending;
         if (currentColor) {
           marker.style.background = currentColor;
         }
-        
+
         markers.appendChild(marker);
       });
-      
+
       dayEl.appendChild(markers);
 
       // Добавляем всплывающий список задач
       if (isMainCalendar) {
         const taskList = document.createElement('div');
         taskList.className = 'task-list';
-        
+
         // Создаем контейнер для контента
         const taskListContent = document.createElement('div');
         taskListContent.className = 'task-list-content';
-        
+
         tasks.forEach(task => {
           // Создаем клон функции renderTask для календаря
           const taskEl = document.createElement('div');
           taskEl.className = 'task' + (task.done ? ' done' : '') + (task.isInfo ? ' info' : '');
-          
+
           // Добавляем класс для пульсации, если есть дедлайн и он скоро
           if (!task.done && task.deadline) {
             const deadline = new Date(task.deadline);
             const diff = deadline - today;
             const hourInMs = 60 * 60 * 1000;
-            
+
             if (diff < hourInMs || diff < 0) {
               taskEl.classList.add('deadline-warning');
             }
@@ -1988,11 +1988,11 @@ function initApp() {
           if (currentColor) {
             taskEl.style.borderLeftColor = currentColor;
             taskEl.dataset.customColor = '';
-            
+
             const alpha = task.done ? '0.1' : '0.05';
             const rgb = hexToRGB(currentColor);
             taskEl.style.setProperty('--task-bg-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`);
-            
+
             if (task.done && task.doneColor) {
               const doneRgb = hexToRGB(task.doneColor);
               taskEl.style.setProperty('--task-done-bg-color', `rgba(${doneRgb.r}, ${doneRgb.g}, ${doneRgb.b}, 0.15)`);
@@ -2021,19 +2021,19 @@ function initApp() {
           // Добавляем контент задачи
           const taskContent = document.createElement('div');
           taskContent.className = 'task-content';
-          
+
           // Заголовок
           const title = document.createElement('div');
           renderLinkedText(title, task.title, 'task-title');
           taskContent.appendChild(title);
-          
+
           // Описание
           if (task.description) {
             const descEl = document.createElement('div');
             renderLinkedText(descEl, task.description, 'task-description');
             taskContent.appendChild(descEl);
           }
-          
+
           taskHeader.appendChild(taskContent);
           taskEl.appendChild(taskHeader);
 
@@ -2064,7 +2064,7 @@ function initApp() {
             deadlineInfo.className = 'task-deadline-info';
             const now = new Date();
             const deadline = new Date(task.deadline);
-            
+
             if (!task.done) {
               // Для невыполненных задач показываем оставшееся время
               if (deadline <= now) {
@@ -2075,7 +2075,7 @@ function initApp() {
               // Для выполненных задач показываем точное время дедлайна
               deadlineInfo.textContent = `⌛️ ${formatDateTime(deadline)}`;
             }
-            
+
             timeIndicators.appendChild(deadlineInfo);
           }
           // Добавляем информацию о сбросе для повторяющихся задач
@@ -2096,10 +2096,10 @@ function initApp() {
             e.stopPropagation();
             openTaskFromCalendar(task);
           };
-          
+
           taskListContent.appendChild(taskEl);
         });
-        
+
         taskList.appendChild(taskListContent);
         dayEl.appendChild(taskList);
       }
@@ -2134,11 +2134,11 @@ function initApp() {
   function openTaskFromCalendar(task) {
     // Переключаемся на нужную доску
     data.selectedBoardId = task.boardId;
-    
+
     // Находим колонку
     const board = getSelectedBoard();
     const column = board.columns.find(col => col.id === task.columnId);
-    
+
     if (column) {
       // Переключаемся на вид досок и открываем диалог задачи
       showBoardView();
@@ -2174,18 +2174,18 @@ function initApp() {
   // Обновляем обработчики для досок
   boardsEl.addEventListener('click', (e) => {
     if (e.target.id === 'calendar-view') return;
-    
+
     const li = e.target.closest('li');
     if (!li) return;
-    
+
     boardsEl.querySelectorAll('li').forEach(el => el.classList.remove('selected'));
     li.classList.add('selected');
-    
+
     data.selectedBoardId = li.dataset.boardId;
     data.isCalendarView = false;
     saveData();
     render();
-    
+
     if (window.innerWidth <= 768) {
       document.body.classList.remove('sidebar-open');
       sidebar.classList.remove('open');
