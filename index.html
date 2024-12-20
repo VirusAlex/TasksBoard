@@ -997,19 +997,19 @@
   /* Иконка для сворачивания/разворачивания сабтасков */
   .task-expand-toggle {
     cursor: pointer;
-    width: calc(100% + 30px); /* Компенсируем левый и правый padding */
+    /* width: calc(100% + 30px); Компенсируем левый и правый padding */
     height: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    /* align-items: center; */
     color: #666;
     user-select: none;
     background: rgba(0,0,0,0.03);
     border-radius: 0 0 6px 6px;
     transition: all 0.2s ease;
     border-top: 1px solid rgba(0,0,0,0.05);
-    padding: 2px 0;
-    margin: 0 -15px -15px -15px; /* Компенсируем padding родителя */
+    padding: 4px 0px;
+    margin: 0 -15px -15px -15px;
   }
 
   .task-expand-toggle:hover {
@@ -1029,8 +1029,8 @@
   }
 
   /* Добавляем стрелку */
-  .task-expand-toggle::after {
-    content: '';
+  .task-expand-toggle .toggle-arrow {
+    grid-column: 2;
     display: inline-block;
     width: 8px;
     height: 8px;
@@ -1038,10 +1038,45 @@
     border-width: 0 2px 2px 0;
     transform: rotate(45deg) translateY(-3px);
     transition: transform 0.2s ease;
+    justify-self: center;
   }
 
-  .task-expand-toggle.collapsed::after {
+  .task-expand-toggle.collapsed .toggle-arrow {
     transform: rotate(-45deg);
+  }
+
+  /* Добавляем стили для статистики сабтасков */
+  .subtasks-stats {
+    grid-column: 3;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0,0,0,0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    justify-self: end;
+    margin: -3px 1px 0 0;
+  }
+
+  .dark-theme .subtasks-stats {
+    background: rgba(255,255,255,0.1);
+  }
+
+  .subtasks-stats .stats-done {
+    color: #27ae60;
+  }
+
+  .dark-theme .subtasks-stats .stats-done {
+    color: #2ecc71;
+  }
+
+  .subtasks-stats .stats-total {
+    color: #666;
+  }
+
+  .dark-theme .subtasks-stats .stats-total {
+    color: #bdc3c7;
   }
 
   /* Контейнер для сабтасков */
@@ -2036,18 +2071,20 @@
       
       const titleEl = document.createElement('h3');
       titleEl.textContent = column.name;
-      
-      const statsEl = document.createElement('div');
-      statsEl.className = 'column-stats';
-      const stats = getColumnStats(column);
-      statsEl.innerHTML = `
-        <span class="stats-done">${stats.done}</span>
-        <span class="stats-separator">/</span>
-        <span class="stats-total">${stats.total}</span>
-      `;
-      
       headerEl.appendChild(titleEl);
-      headerEl.appendChild(statsEl);
+      
+      const stats = getColumnStats(column);
+      if (stats.total > 0) {
+        const statsEl = document.createElement('div');
+        statsEl.className = 'column-stats';
+        statsEl.innerHTML = `
+          <span class="stats-done">${stats.done}</span>
+          <span class="stats-separator">/</span>
+          <span class="stats-total">${stats.total}</span>
+        `;
+        headerEl.appendChild(statsEl);
+      }
+      
       colEl.appendChild(headerEl);
 
       headerEl.addEventListener('dblclick', () => {
@@ -3003,6 +3040,32 @@
       expandToggle.className = 'task-expand-toggle';
       if (task.collapsed) {
         expandToggle.classList.add('collapsed');
+      }
+      
+      // Добавляем пустой элемент для первой колонки грида
+      const spacerLeft = document.createElement('div');
+      expandToggle.appendChild(spacerLeft);
+      
+      // Добавляем контейнер для стрелки
+      const toggleArrow = document.createElement('span');
+      toggleArrow.className = 'toggle-arrow';
+      expandToggle.appendChild(toggleArrow);
+      
+      // Добавляем статистику
+      const stats = getSubtasksStats(task);
+      if (stats.total > 0) {
+        const statsEl = document.createElement('div');
+        statsEl.className = 'subtasks-stats';
+        statsEl.innerHTML = `
+          <span class="stats-done">${stats.done}</span>
+          <span class="stats-separator">/</span>
+          <span class="stats-total">${stats.total}</span>
+        `;
+        expandToggle.appendChild(statsEl);
+      } else {
+        // Если нет статистики, добавляем пустой элемент для третьей колонки грида
+        const spacerRight = document.createElement('div');
+        expandToggle.appendChild(spacerRight);
       }
       
       expandToggle.onclick = (e) => {
@@ -4166,6 +4229,33 @@
   document.querySelector('.main-calendar')?.addEventListener('click', (e) => {
     e.stopPropagation();
   });
+
+  // Добавляем функцию для подсчета статистики сабтасков
+  function getSubtasksStats(task) {
+    let done = 0;
+    let total = 0;
+
+    function countSubtasks(subtaskIds) {
+      subtaskIds.forEach(subtaskId => {
+        const subtask = findTaskById(subtaskId);
+        if (subtask) {
+          if (!subtask.isInfo) {
+            total++;
+            if (subtask.done) done++;
+          }
+          if (subtask.subtasks && subtask.subtasks.length > 0) {
+            countSubtasks(subtask.subtasks);
+          }
+        }
+      });
+    }
+
+    if (task.subtasks) {
+      countSubtasks(task.subtasks);
+    }
+
+    return { done, total };
+  }
 </script>
 
 </body>
