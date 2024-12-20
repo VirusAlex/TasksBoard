@@ -213,19 +213,57 @@ export function initBoardRenderer(
       taskEl.appendChild(timeIndicators);
     }
 
-    addTaskDragHandlers(taskEl);
+    taskEl.addEventListener('dragstart', (e) => {
+      e.stopPropagation();
+      taskEl.classList.add('dragging');
+    });
+
+    taskEl.addEventListener('dragend', (e) => {
+      e.stopPropagation();
+      taskEl.classList.remove('dragging');
+      dragDrop.removeAllDropIndicators();
+    });
+
+    taskEl.addEventListener('dragover', (e) => {
+      const draggingTask = document.querySelector('.task.dragging');
+      if (!draggingTask) return;
+      dragDrop.showTaskDropIndicator(e, taskEl, draggingTask);
+    });
+
+    taskEl.addEventListener('drop', (e) => {
+      dragDrop.handleTaskDrop(e, taskEl);
+    });
+
+    taskEl.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      
+      const task = tasks.findTaskById(taskEl.dataset.taskId);
+      if (task) {
+        const column = getSelectedBoard().columns.find(col => {
+          return col.tasks.some(t => {
+            if (t.id === task.id) return true;
+            return !!(task.parentId && t.id === task.parentId);
+          });
+        });
+        
+        if (column) {
+          openTaskDialog(column, task);
+        }
+      }
+    });
 
     container.appendChild(taskEl);
 
-    if (task.subtasks && task.subtasks.length > 0) {
+    const subtasks = board.columns.flatMap(col => 
+      col.tasks.filter(t => t.parentId === task.id)
+    );
+
+    if (subtasks.length > 0) {
       const subtasksContainer = document.createElement('div');
       subtasksContainer.className = 'subtasks-container';
       
-      task.subtasks.forEach(subtaskId => {
-        const subtask = tasks.findTaskById(subtaskId);
-        if (subtask) {
-          renderTask(subtask, subtasksContainer);
-        }
+      subtasks.forEach(subtask => {
+        renderTask(subtask, subtasksContainer);
       });
       
       taskEl.appendChild(subtasksContainer);
@@ -273,47 +311,6 @@ export function initBoardRenderer(
         subtasksContainer.style.display = 'none';
       }
     }
-  }
-
-  function addTaskDragHandlers(taskEl) {
-    taskEl.addEventListener('dragstart', (e) => {
-      e.stopPropagation();
-      taskEl.classList.add('dragging');
-    });
-
-    taskEl.addEventListener('dragend', (e) => {
-      e.stopPropagation();
-      taskEl.classList.remove('dragging');
-      dragDrop.removeAllDropIndicators();
-    });
-
-    taskEl.addEventListener('dragover', (e) => {
-      const draggingTask = document.querySelector('.task.dragging');
-      if (!draggingTask) return;
-      dragDrop.showTaskDropIndicator(e, taskEl, draggingTask);
-    });
-
-    taskEl.addEventListener('drop', (e) => {
-      dragDrop.handleTaskDrop(e, taskEl);
-    });
-
-    taskEl.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-      
-      const task = tasks.findTaskById(taskEl.dataset.taskId);
-      if (task) {
-        const column = getSelectedBoard().columns.find(col => {
-          return col.tasks.some(t => {
-            if (t.id === task.id) return true;
-            return !!(task.parentId && t.id === task.parentId);
-          });
-        });
-        
-        if (column) {
-          openTaskDialog(column, task);
-        }
-      }
-    });
   }
 
   function renderLinkedText(container, text, className = '') {

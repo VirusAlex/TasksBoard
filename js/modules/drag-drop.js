@@ -213,10 +213,6 @@ export function initDragDrop(tasks, render) {
             
             // Добавляем задачу как сабтаск
             sourceTask.parentId = targetTaskId;
-            if (!targetTask.subtasks) {
-              targetTask.subtasks = [];
-            }
-            targetTask.subtasks.push(draggedTaskId);
             sourceColumn.tasks.push(sourceTask);
             
             render();

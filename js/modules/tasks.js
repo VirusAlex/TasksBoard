@@ -32,20 +32,16 @@ export function initTaskManager(data, saveData) {
     let done = 0;
     let total = 0;
 
-    function countSubtasks(taskId) {
-      const task = findTaskById(taskId);
-      if (!task || task.isInfo) return;
-      
-      total++;
-      if (task.done) done++;
-      
-      if (task.subtasks) {
-        task.subtasks.forEach(countSubtasks);
+    // Ищем все задачи, у которых parentId равен id текущей задачи
+    for (const board of data.boards) {
+      for (const column of board.columns) {
+        column.tasks.forEach(t => {
+          if (t.parentId === task.id && !t.isInfo) {
+            total++;
+            if (t.done) done++;
+          }
+        });
       }
-    }
-
-    if (task.subtasks) {
-      task.subtasks.forEach(countSubtasks);
     }
 
     return { done, total };
@@ -65,7 +61,6 @@ export function initTaskManager(data, saveData) {
       resetTime: taskData.resetTime || null,
       isInfo: taskData.isInfo || false,
       parentId: taskData.parentId || null,
-      subtasks: taskData.subtasks || [],
       collapsed: false
     };
 
@@ -81,24 +76,19 @@ export function initTaskManager(data, saveData) {
         if (taskIndex !== -1) {
           // Рекурсивно удаляем все сабтаски
           const task = column.tasks[taskIndex];
-          if (task.subtasks) {
-            task.subtasks.forEach(deleteTask);
-          }
-          
-          // Удаляем задачу из массива
-          column.tasks.splice(taskIndex, 1);
-          
-          // Если это сабтаск, удаляем ссылку на него из родительской задачи
-          if (task.parentId) {
-            const parentTask = findTaskById(task.parentId);
-            if (parentTask && parentTask.subtasks) {
-              const subtaskIndex = parentTask.subtasks.indexOf(taskId);
-              if (subtaskIndex !== -1) {
-                parentTask.subtasks.splice(subtaskIndex, 1);
+          // Ищем и удаляем все задачи, у которых parentId равен taskId
+          for (const col of board.columns) {
+            col.tasks = col.tasks.filter(t => {
+              if (t.parentId === taskId) {
+                deleteTask(t.id); // Рекурсивно удаляем сабтаски сабтасков
+                return false;
               }
-            }
+              return true;
+            });
           }
           
+          // Удаляем саму задачу
+          column.tasks.splice(taskIndex, 1);
           saveData();
           return true;
         }
@@ -123,16 +113,8 @@ export function initTaskManager(data, saveData) {
     }
     if (!targetColumn) return false;
 
-    // Если это был сабтаск, удаляем связь с родительской задачей
+    // Если это был сабтаск, удаляем parentId
     if (task.parentId) {
-      const parentTask = findTaskById(task.parentId);
-      if (parentTask && parentTask.subtasks) {
-        const subtaskIndex = parentTask.subtasks.indexOf(taskId);
-        if (subtaskIndex !== -1) {
-          parentTask.subtasks.splice(subtaskIndex, 1);
-        }
-      }
-      // Удаляем parentId, чтобы задача стала обычной
       task.parentId = null;
     }
 
@@ -162,12 +144,6 @@ export function initTaskManager(data, saveData) {
       ...subtaskData,
       parentId: parentTaskId
     });
-
-    // Добавляем ссылку на сабтаск в родительскую задачу
-    if (!parentTask.subtasks) {
-      parentTask.subtasks = [];
-    }
-    parentTask.subtasks.push(subtask.id);
 
     saveData();
     return subtask;

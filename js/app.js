@@ -1,4 +1,3 @@
-
 import { generateId, formatDateTime, formatTimeLeft, formatDeadlineTime } from './utils.js';
 
 function initApp() {
@@ -306,6 +305,59 @@ function initApp() {
     const form = dialog.querySelector('form');
     const titleInput = document.getElementById('task-title');
     const descriptionInput = document.getElementById('task-description');
+    const insertLinkBtn = document.getElementById('insert-link-btn');
+
+    // Add event listener for insert link button
+    insertLinkBtn.addEventListener('click', async () => {
+      const linkDialog = document.getElementById('link-dialog');
+      const linkForm = linkDialog.querySelector('form');
+      const urlInput = document.getElementById('link-url');
+      const textInput = document.getElementById('link-text');
+
+      // Clear form
+      linkForm.reset();
+
+      // If there's selected text, use it as link text
+      const selectedText = descriptionInput.value.substring(
+        descriptionInput.selectionStart,
+        descriptionInput.selectionEnd
+      );
+      if (selectedText) {
+        textInput.value = selectedText;
+      }
+
+      linkDialog.showModal();
+
+      // Wait for dialog close
+      const closePromise = new Promise(resolve => {
+        linkDialog.addEventListener('close', () => resolve(linkDialog.returnValue), { once: true });
+      });
+
+      linkForm.onsubmit = (e) => {
+        e.preventDefault();
+        linkDialog.close('submit');
+      };
+
+      const result = await closePromise;
+      if (result === 'submit') {
+        const url = urlInput.value;
+        const text = textInput.value || url;
+        const link = `[${text}](${url})`;
+
+        // Insert link into text
+        const start = descriptionInput.selectionStart;
+        const end = descriptionInput.selectionEnd;
+        descriptionInput.value =
+          descriptionInput.value.substring(0, start) +
+          link +
+          descriptionInput.value.substring(end);
+      }
+    });
+
+    // Remove event listener when dialog closes
+    dialog.addEventListener('close', () => {
+      insertLinkBtn.removeEventListener('click', () => {});
+    }, { once: true });
 
     descriptionInput.addEventListener('input', updateLineNumbers);
     descriptionInput.addEventListener('scroll', () => {
@@ -335,8 +387,8 @@ function initApp() {
     const deadlineTime = document.getElementById('deadline-time');
 
     // Добавляем минимальную дату (сегодня) для выбора дедлайна
-    const today = new Date().toISOString().split('T')[0];
-    deadlineDate.min = today;
+    // const today = new Date().toISOString().split('T')[0];
+    // deadlineDate.min = today;
 
     const taskColorsEl = document.getElementById('task-colors');
     const doneColorsEl = document.getElementById('done-colors');
@@ -2234,6 +2286,5 @@ function initApp() {
 
     return { done, total };
   }
-}
+}export { initApp };
 
-export { initApp };
