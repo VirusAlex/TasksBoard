@@ -1,6 +1,5 @@
 import { formatDateTime, formatTimeLeft, formatDeadlineTime } from '../utils.js';
 import { hexToRGB } from './ui-utils.js';
-import { defaultTaskColors } from './theme.js';
 
 export function initBoardRenderer(
   data, 
