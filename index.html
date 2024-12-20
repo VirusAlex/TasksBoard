@@ -44,11 +44,19 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    padding: 20px;
     height: 100vh;
     height: -webkit-fill-available;
     overflow: hidden; /* Предотвращаем скролл на уровне main */
     padding: 0 20px 20px 20px;
+  }
+
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;
+    height: calc(100vh - 81px); /* Учитываем высоту заголовка и кнопки */
   }
 
   /* Обновляем стили для колонок */
@@ -61,7 +69,7 @@
     flex: 1;
     padding: 10px 0 20px 0;
     align-items: flex-start;
-    height: calc(100vh - 80px); /* Учитываем высоту заголовка и кнопки */
+    height: calc(100% - 40px); /* Учитываем отступы */
   }
 
   /* Стили для кнопок */
@@ -368,10 +376,6 @@
   }
   /* Кнопка переключения темы */
   #theme-toggle {
-    /* position: absolute; */
-    /* top: 20px; */
-    /* right: 20px; */
-    /* padding: 10px; */
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -987,7 +991,6 @@
   /* Стили для сабтасков */
   .task.subtask {
     font-size: 0.95em;
-    /* background: rgba(52, 152, 219, 0.05); */
     margin: 8px 0 0 0;
   }
 
@@ -1273,7 +1276,6 @@
   /* Добавляем стили для календаря */
   #calendar-view-content {
     padding: 20px;
-    max-width: 1400px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
@@ -1315,99 +1317,6 @@
     min-height: 0;
   }
 
-  .mini-calendars {
-    width: 280px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    overflow-y: auto;
-  }
-
-  .mini-calendar {
-    flex-shrink: 0;
-  }
-
-  .mini-calendar h4 {
-    margin: 0 0 5px 0;
-    font-size: 12px;
-    color: #666;
-  }
-
-  .mini-calendar .calendar-grid {
-    gap: 2px;
-  }
-
-  .mini-calendar .calendar-day {
-    padding: 2px;
-    min-height: 25px;
-    border-radius: 3px;
-  }
-
-  .mini-calendar .calendar-day .date {
-    font-size: 11px;
-  }
-
-  .mini-calendar .calendar-day-header {
-    padding: 2px;
-    font-size: 11px;
-  }
-
-  .toggle-mini-calendars {
-    display: none;
-    margin-bottom: 10px;
-    padding: 8px;
-    background: transparent;
-    border: 1px solid rgba(0,0,0,0.1);
-    border-radius: 4px;
-    cursor: pointer;
-    color: #666;
-  }
-
-  .dark-theme .toggle-mini-calendars {
-    border-color: rgba(255,255,255,0.1);
-    color: #bdc3c7;
-  }
-
-  @media (max-width: 1024px) {
-    .calendar-container {
-      flex-direction: column;
-    }
-
-    .mini-calendars {
-      width: 100%;
-      flex-direction: row;
-      overflow-x: auto;
-      padding-bottom: 10px;
-    }
-
-    .mini-calendar {
-      min-width: 280px;
-    }
-
-    .toggle-mini-calendars {
-      display: block;
-    }
-
-    .mini-calendars.hidden {
-      display: none;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .calendar-container {
-      gap: 10px;
-    }
-
-    .mini-calendars {
-      gap: 10px;
-    }
-
-    .mini-calendar {
-      min-width: 250px;
-    }
-  }
-
   .calendar-day-header {
     text-align: center;
     font-weight: 500;
@@ -1428,7 +1337,8 @@
     position: relative;
     cursor: pointer;
     transition: all 0.2s ease;
-    min-height: 90px;
+    min-height: 120px;
+    margin: 2px;
   }
 
   .dark-theme .calendar-day {
@@ -1542,24 +1452,60 @@
   }
 
   .mini-calendars {
-    display: flex;
-    gap: 40px;
     justify-content: center;
-    margin-top: auto;
-    padding-top: 20px;
+    margin: auto;
+    width: 400px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+    padding: 0 5px;
   }
 
   .mini-calendar {
     flex: 1;
-    max-width: 400px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  .mini-calendar h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #666;
   }
 
   .dark-theme .mini-calendar h4 {
     color: #bdc3c7;
   }
 
+  .mini-calendar .calendar-grid {
+    gap: 2px;
+  }
+
   .mini-calendar .calendar-day {
     padding: 4px;
+    min-height: 35px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .calendar-day .date {
+    font-size: 16px;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .mini-calendar .calendar-day .date {
+    font-size: 11px;
+  }
+
+  .mini-calendar .calendar-day-header {
+    padding: 4px 2px;
+    font-size: 11px;
   }
 
   .calendar-item {
@@ -1584,8 +1530,7 @@
 
   /* Добавляем стили для статичного меню */
   #static-menu {
-    margin: 0 -20px;
-    margin-bottom: 10px;
+    margin: 0 -20px 10px;
   }
 
   #static-menu .calendar-item {
@@ -1674,78 +1619,50 @@
   }
 
   .task-marker.overdue {
-    box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.3);
+    animation: pulse 1s infinite;
   }
 
   .task-marker.done {
     box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.3);
   }
 
-  .mini-calendars {
-    width: 280px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    overflow-y: auto;
-    padding: 0 5px;
-  }
+  @media (max-width: 1800px) {
+    .calendar-container {
+      flex-direction: column;
+    }
 
-  .mini-calendar {
-    flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    padding: 10px;
-  }
-
-  .dark-theme .mini-calendar {
-    background: rgba(0, 0, 0, 0.2);
-  }
-
-  .mini-calendar h4 {
-    margin: 0 0 10px 0;
-    font-size: 14px;
-    color: #666;
-    text-align: center;
-  }
-
-  .mini-calendar .calendar-grid {
-    gap: 2px;
-  }
-
-  .mini-calendar .calendar-day {
-    padding: 2px;
-    min-height: 22px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .mini-calendar .calendar-day .date {
-    font-size: 11px;
-  }
-
-  .mini-calendar .calendar-day-header {
-    padding: 4px 2px;
-    font-size: 11px;
-  }
-
-  .calendar-day .date {
-    font-size: 16px;
-    margin-bottom: 8px;
-    font-weight: 500;
-  }
-
-  @media (max-width: 1024px) {
     .mini-calendars {
       width: 100%;
       flex-direction: row;
-      padding: 5px 0;
+      overflow-x: auto;
+      padding-bottom: 10px;
     }
 
-    .mini-calendar {
-      min-width: 280px;
+    .calendar-day {
+      min-height: 0;
+    }
+
+    .mini-calendars.hidden {
+      display: none;
+    }
+
+    .main-content {
+      overflow: auto;
+    }
+  }
+
+  @media (max-width: 1080px) {
+    .calendar-container {
+      width: 500px;
+    }
+
+    .mini-calendars {
+      gap: 2px;
+      flex-direction: column;
+    }
+
+    .calendar-grid {
+        gap: 2px;
     }
   }
 </style>
@@ -1774,231 +1691,232 @@
       <button id="theme-toggle"><span></span></button>
     </div>
 
-    <div id="board-view">
-      <button id="add-column-btn" class="add-btn">+ Добавить колонку</button>
-      <div id="columns"></div>
-    </div>
+    <div class="main-content">
 
-    <div id="calendar-view-content" style="display: none;">
-      <div class="calendar-header">
-        <div class="calendar-nav">
-          <button class="icon-button" id="prev-month">◀</button>
-          <h3 id="current-month"></h3>
-          <button class="icon-button" id="next-month">▶</button>
+      <div id="board-view">
+        <button id="add-column-btn" class="add-btn">+ Добавить колонку</button>
+        <div id="columns"></div>
+      </div>
+
+      <div id="calendar-view-content" style="display: none;">
+        <div class="calendar-header">
+          <div class="calendar-nav">
+            <button class="icon-button" id="prev-month">◀</button>
+            <h3 id="current-month"></h3>
+            <button class="icon-button" id="next-month">▶</button>
+          </div>
+        </div>
+
+        <div class="calendar-container">
+          <div class="main-calendar-wrapper">
+            <div class="main-calendar">
+              <div class="calendar-grid"></div>
+            </div>
+          </div>
+
+          <div class="mini-calendars">
+            <div class="mini-calendar prev-month">
+              <h4></h4>
+              <div class="calendar-grid"></div>
+            </div>
+            <div class="mini-calendar next-month">
+              <h4></h4>
+              <div class="calendar-grid"></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <button class="toggle-mini-calendars">Показать/скрыть мини-календари</button>
-      
-      <div class="calendar-container">
-        <div class="main-calendar-wrapper">
-          <div class="main-calendar">
-            <div class="calendar-grid"></div>
+      <dialog id="column-dialog" class="custom-dialog">
+        <form method="dialog">
+          <div class="dialog-header">
+            <h3></h3>
           </div>
-        </div>
-        
-        <div class="mini-calendars">
-          <div class="mini-calendar prev-month">
-            <h4></h4>
-            <div class="calendar-grid"></div>
+
+          <div class="form-group">
+            <label for="column-name">Название колонки</label>
+            <input type="text" id="column-name" required>
           </div>
-          <div class="mini-calendar next-month">
-            <h4></h4>
-            <div class="calendar-grid"></div>
+
+          <div class="dialog-buttons">
+            <div class="left-buttons">
+              <button type="button" class="danger delete-btn" style="display: none;">Удалить</button>
+            </div>
+            <div class="right-buttons">
+              <button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button>
+              <button type="submit"></button>
+            </div>
           </div>
-        </div>
-      </div>
+        </form>
+      </dialog>
+
+      <dialog id="task-dialog" class="custom-dialog">
+        <form method="dialog">
+          <div class="dialog-header">
+            <h3></h3>
+            <div class="dialog-breadcrumbs"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="task-title">Заголовок</label>
+            <input type="text" id="task-title" required>
+          </div>
+
+          <div class="form-group">
+            <label for="task-description">Описание</label>
+            <div class="description-controls">
+              <button type="button" class="icon-button" onclick="insertLink()" title="Вставить ссылку">🔗</button>
+            </div>
+            <div class="description-container">
+              <div class="line-numbers"></div>
+              <textarea id="task-description" rows="3"></textarea>
+            </div>
+          </div>
+
+          <div class="form-group checkbox">
+            <input type="checkbox" id="task-info">
+            <label for="task-info">Информационная задача (без возможности выполнения)</label>
+          </div>
+
+          <div class="form-group checkbox">
+            <input type="checkbox" id="task-repeat">
+            <label for="task-repeat">Повторять каждый день</label>
+          </div>
+
+          <div class="reset-time-group" style="display: none;">
+            <div class="reset-time-controls">
+              <label for="reset-time">Время сброса:</label>
+              <div class="time-input-group">
+                <input type="time" id="reset-time">
+                <button type="button" class="clear-time-btn" title="Очистить время">×</button>
+              </div>
+            </div>
+            <small>Если не указано, сброс произойдет в начале следующего дня</small>
+          </div>
+
+          <div class="form-group checkbox" id="deadline-group">
+            <input type="checkbox" id="task-deadline-enabled">
+            <label for="task-deadline-enabled">Установить дедлайн</label>
+          </div>
+
+          <div class="form-group" id="deadline-inputs" style="display: none;">
+            <label>Дата и время дедлайна:</label>
+            <div style="display: flex; gap: 10px;">
+              <input type="date" id="deadline-date" style="flex: 1;">
+              <input type="time" id="deadline-time" style="width: 120px;">
+            </div>
+          </div>
+
+
+          <div class="color-picker-group">
+            <label class="color-picker-label">Цвет задачи</label>
+            <div class="color-options" id="task-colors">
+              <div class="color-option" style="background-color: #f1c40f" data-color="#f1c40f"></div>
+              <div class="color-option" style="background-color: #3498db" data-color="#3498db"></div>
+              <div class="color-option" style="background-color: #e74c3c" data-color="#e74c3c"></div>
+              <div class="color-option" style="background-color: #2ecc71" data-color="#2ecc71"></div>
+              <div class="color-option" style="background-color: #9b59b6" data-color="#9b59b6"></div>
+              <div class="color-option custom">
+                <input type="color" id="custom-task-color">
+              </div>
+              <button type="button" class="reset-color-btn" id="reset-task-color" title="Сбросить цвет">↺</button>
+            </div>
+          </div>
+
+          <div class="color-picker-group" id="done-color-group" style="display: none;">
+            <label class="color-picker-label">Цвет выполненной задачи</label>
+            <div class="color-options" id="done-colors">
+              <div class="color-option" style="background-color: #2ecc71" data-color="#2ecc71"></div>
+              <div class="color-option" style="background-color: #27ae60" data-color="#27ae60"></div>
+              <div class="color-option" style="background-color: #16a085" data-color="#16a085"></div>
+              <div class="color-option custom">
+                <input type="color" id="custom-done-color">
+              </div>
+              <button type="button" class="reset-color-btn" id="reset-done-color" title="Сбросить цвет">↺</button>
+            </div>
+          </div>
+
+
+          <div class="dialog-buttons">
+            <div class="left-buttons">
+              <button type="button" class="danger delete-btn" style="display: none;">Удалить</button>
+            </div>
+            <div class="right-buttons">
+              <button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button>
+              <button type="submit">Создать</button>
+            </div>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="board-dialog" class="custom-dialog">
+        <form method="dialog">
+          <div class="dialog-header">
+            <h3></h3>
+          </div>
+
+          <div class="form-group">
+            <label for="board-name">Название доски</label>
+            <input type="text" id="board-name" required>
+          </div>
+
+          <div class="dialog-buttons">
+            <div class="left-buttons">
+              <button type="button" class="danger delete-btn" style="display: none;">Удалить</button>
+            </div>
+            <div class="right-buttons">
+              <button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button>
+              <button type="submit"></button>
+            </div>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="confirm-dialog" class="custom-dialog">
+        <form method="dialog">
+          <div class="dialog-header">
+            <h3>Подтверждение удаления</h3>
+          </div>
+
+          <div class="form-group">
+            <p id="confirm-message"></p>
+          </div>
+
+          <div class="dialog-buttons">
+            <div class="right-buttons">
+              <button type="button" class="secondary" onclick="this.closest('dialog').close('cancel')">Отмена</button>
+              <button type="submit" class="danger" value="confirm">Удалить</button>
+            </div>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="link-dialog" class="custom-dialog">
+        <form method="dialog">
+          <div class="dialog-header">
+            <h3>Вставить ссылку</h3>
+          </div>
+
+          <div class="form-group">
+            <label for="link-url">URL</label>
+            <input type="url" id="link-url" required placeholder="https://">
+          </div>
+
+          <div class="form-group">
+            <label for="link-text">Ткст ссылки (необязательно)</label>
+            <input type="text" id="link-text" placeholder="Отображаемый текст">
+          </div>
+
+          <div class="dialog-buttons">
+            <div class="right-buttons">
+              <button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button>
+              <button type="submit">Вставить</button>
+            </div>
+          </div>
+        </form>
+      </dialog>
+
     </div>
-
-    <dialog id="column-dialog" class="custom-dialog">
-      <form method="dialog">
-        <div class="dialog-header">
-          <h3></h3>
-        </div>
-        
-        <div class="form-group">
-          <label for="column-name">Название колонки</label>
-          <input type="text" id="column-name" required>
-        </div>
-
-        <div class="dialog-buttons">
-          <div class="left-buttons">
-            <button type="button" class="danger delete-btn" style="display: none;">Удалить</button>
-          </div>
-          <div class="right-buttons">
-            <button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button>
-            <button type="submit"></button>
-          </div>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="task-dialog" class="custom-dialog">
-      <form method="dialog">
-        <div class="dialog-header">
-          <h3></h3>
-          <div class="dialog-breadcrumbs"></div>
-        </div>
-        
-        <div class="form-group">
-          <label for="task-title">Заголовок</label>
-          <input type="text" id="task-title" required>
-        </div>
-
-        <div class="form-group">
-          <label for="task-description">Описание</label>
-          <div class="description-controls">
-            <button type="button" class="icon-button" onclick="insertLink()" title="Вставить ссылку">🔗</button>
-          </div>
-          <div class="description-container">
-            <div class="line-numbers"></div>
-            <textarea id="task-description" rows="3"></textarea>
-          </div>
-        </div>
-
-        <div class="form-group checkbox">
-          <input type="checkbox" id="task-info">
-          <label for="task-info">Информационная задача (без возможности выполнения)</label>
-        </div>
-
-        <div class="form-group checkbox">
-          <input type="checkbox" id="task-repeat">
-          <label for="task-repeat">Повторять каждый день</label>
-        </div>
-
-        <div class="reset-time-group" style="display: none;">
-          <div class="reset-time-controls">
-            <label for="reset-time">Время сброса:</label>
-            <div class="time-input-group">
-              <input type="time" id="reset-time">
-              <button type="button" class="clear-time-btn" title="Очистить время">×</button>
-            </div>
-          </div>
-          <small>Если не указано, сброс произойдет в начале следующего дня</small>
-        </div>
-
-        <div class="form-group checkbox" id="deadline-group">
-          <input type="checkbox" id="task-deadline-enabled">
-          <label for="task-deadline-enabled">Установить дедлайн</label>
-        </div>
-
-        <div class="form-group" id="deadline-inputs" style="display: none;">
-          <label>Дата и время дедлайна:</label>
-          <div style="display: flex; gap: 10px;">
-            <input type="date" id="deadline-date" style="flex: 1;">
-            <input type="time" id="deadline-time" style="width: 120px;">
-          </div>
-        </div>
-
-        
-        <div class="color-picker-group">
-          <label class="color-picker-label">Цвет задачи</label>
-          <div class="color-options" id="task-colors">
-            <div class="color-option" style="background-color: #f1c40f" data-color="#f1c40f"></div>
-            <div class="color-option" style="background-color: #3498db" data-color="#3498db"></div>
-            <div class="color-option" style="background-color: #e74c3c" data-color="#e74c3c"></div>
-            <div class="color-option" style="background-color: #2ecc71" data-color="#2ecc71"></div>
-            <div class="color-option" style="background-color: #9b59b6" data-color="#9b59b6"></div>
-            <div class="color-option custom">
-              <input type="color" id="custom-task-color">
-            </div>
-            <button type="button" class="reset-color-btn" id="reset-task-color" title="Сбросить цвет">↺</button>
-          </div>
-        </div>
-
-        <div class="color-picker-group" id="done-color-group" style="display: none;">
-          <label class="color-picker-label">Цвет выполненной задачи</label>
-          <div class="color-options" id="done-colors">
-            <div class="color-option" style="background-color: #2ecc71" data-color="#2ecc71"></div>
-            <div class="color-option" style="background-color: #27ae60" data-color="#27ae60"></div>
-            <div class="color-option" style="background-color: #16a085" data-color="#16a085"></div>
-            <div class="color-option custom">
-              <input type="color" id="custom-done-color">
-            </div>
-            <button type="button" class="reset-color-btn" id="reset-done-color" title="Сбросить цвет">↺</button>
-          </div>
-        </div>
-
-
-        <div class="dialog-buttons">
-          <div class="left-buttons">
-            <button type="button" class="danger delete-btn" style="display: none;">Удалить</button>
-          </div>
-          <div class="right-buttons">
-            <button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button>
-            <button type="submit">Создать</button>
-          </div>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="board-dialog" class="custom-dialog">
-      <form method="dialog">
-        <div class="dialog-header">
-          <h3></h3>
-        </div>
-        
-        <div class="form-group">
-          <label for="board-name">Название доски</label>
-          <input type="text" id="board-name" required>
-        </div>
-
-        <div class="dialog-buttons">
-          <div class="left-buttons">
-            <button type="button" class="danger delete-btn" style="display: none;">Удалить</button>
-          </div>
-          <div class="right-buttons">
-            <button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button>
-            <button type="submit"></button>
-          </div>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="confirm-dialog" class="custom-dialog">
-      <form method="dialog">
-        <div class="dialog-header">
-          <h3>Подтверждение удаления</h3>
-        </div>
-        
-        <div class="form-group">
-          <p id="confirm-message"></p>
-        </div>
-
-        <div class="dialog-buttons">
-          <div class="right-buttons">
-            <button type="button" class="secondary" onclick="this.closest('dialog').close('cancel')">Отмена</button>
-            <button type="submit" class="danger" value="confirm">Удалить</button>
-          </div>
-        </div>
-      </form>
-    </dialog>
-
-    <dialog id="link-dialog" class="custom-dialog">
-      <form method="dialog">
-        <div class="dialog-header">
-          <h3>Вставить ссылку</h3>
-        </div>
-        
-        <div class="form-group">
-          <label for="link-url">URL</label>
-          <input type="url" id="link-url" required placeholder="https://">
-        </div>
-
-        <div class="form-group">
-          <label for="link-text">Ткст ссылки (необязательно)</label>
-          <input type="text" id="link-text" placeholder="Отображаемый текст">
-        </div>
-
-        <div class="dialog-buttons">
-          <div class="right-buttons">
-            <button type="button" class="secondary" onclick="this.closest('dialog').close()">Отмена</button>
-            <button type="submit">Вставить</button>
-          </div>
-        </div>
-      </form>
-    </dialog>
-
     
   </div>
 
@@ -4244,17 +4162,6 @@
 
   document.querySelector('.main-calendar')?.addEventListener('click', (e) => {
     e.stopPropagation();
-  });
-
-  // Добавляем после остальных обработчиков
-  const toggleMiniCalendarsBtn = document.querySelector('.toggle-mini-calendars');
-  const miniCalendarsContainer = document.querySelector('.mini-calendars');
-
-  toggleMiniCalendarsBtn.addEventListener('click', () => {
-    miniCalendarsContainer.classList.toggle('hidden');
-    toggleMiniCalendarsBtn.textContent = miniCalendarsContainer.classList.contains('hidden') 
-      ? 'Показать мини-календари' 
-      : 'Скрыть мини-календари';
   });
 </script>
 
