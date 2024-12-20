@@ -1751,11 +1751,11 @@
 
           <div class="mini-calendars">
             <div class="mini-calendar prev-month">
-              <h4></h4>
+              <h4 style="text-align: center;"></h4>
               <div class="calendar-grid"></div>
             </div>
             <div class="mini-calendar next-month">
-              <h4></h4>
+              <h4 style="text-align: center;"></h4>
               <div class="calendar-grid"></div>
             </div>
           </div>
@@ -3852,7 +3852,7 @@
     document.getElementById('current-month').textContent = currentDate.toLocaleString('ru', { 
       month: 'long', 
       year: 'numeric' 
-    });
+    }).replace(/^./, str => str.toUpperCase());
 
     // Создаем даты для предыдущего и следующего месяцев
     const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
@@ -3862,11 +3862,12 @@
     prevMonthCal.querySelector('h4').textContent = prevMonth.toLocaleString('ru', { 
       month: 'long', 
       year: 'numeric' 
-    });
+    }).replace(/^./, str => str.toUpperCase());
+
     nextMonthCal.querySelector('h4').textContent = nextMonth.toLocaleString('ru', { 
       month: 'long', 
       year: 'numeric' 
-    });
+    }).replace(/^./, str => str.toUpperCase());
 
     // Рендерим календари
     renderMonth(mainCalendar.querySelector('.calendar-grid'), currentDate, true);
