@@ -1,0 +1,1695 @@
+/* Обновляем стили для body и html */
+html, body {
+margin: 0;
+padding: 0;
+height: 100%;
+min-height: 100vh;
+/* Для поддержки мобильных браузеров */
+min-height: -webkit-fill-available;
+}
+
+body {
+font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+display: flex;
+background: #f5f7fa;
+color: #2c3e50;
+overflow: hidden; /* Предотвращаем скролл на уровне body */
+}
+
+/* Обновляем стили для бокового меню */
+#sidebar {
+width: 250px;
+border-right: 1px solid rgba(0,0,0,0.1);
+padding: 20px;
+box-sizing: border-box;
+background: white;
+box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+display: flex;
+flex-direction: column;
+height: 100vh;
+height: -webkit-fill-available;
+overflow-y: auto; /* Добавляем скролл для бокового меню */
+}
+
+/* Обновляем стили для основного контента */
+#main {
+flex: 1;
+display: flex;
+flex-direction: column;
+box-sizing: border-box;
+height: 100vh;
+height: -webkit-fill-available;
+overflow: hidden; /* Предотвращаем скролл на уровне main */
+padding: 0 20px 20px 20px;
+}
+
+.main-content {
+flex: 1;
+display: flex;
+flex-direction: column;
+box-sizing: border-box;
+overflow: hidden;
+height: calc(100vh - 81px); /* Учитываем высоту заголовка и кнопки */
+}
+
+/* Обновляем стили для колонок */
+#columns {
+position: relative; /* Важно для правильного позиционирования индикатора */
+display: flex;
+gap: 20px;
+overflow-x: auto;
+overflow-y: auto; /* Добавляем вертикальный скролл для колонок */
+flex: 1;
+padding: 10px 0 20px 0;
+align-items: flex-start;
+height: calc(100% - 40px); /* Учитываем отступы */
+}
+
+/* Стили для кнопок */
+button {
+padding: 8px 16px;
+border-radius: 6px;
+border: none;
+background: #3498db;
+color: white;
+cursor: pointer;
+transition: all 0.2s ease;
+font-size: 14px;
+box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+button:hover {
+background: #2980b9;
+transform: translateY(-1px);
+box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+/* Список досок */
+#boards {
+list-style: none;
+padding: 0;
+margin: 0 -20px; /* Расширяем список на всю ширину сайдбара */
+}
+#boards li {
+cursor: pointer;
+margin: 0;
+padding: 12px 20px;
+transition: all 0.2s ease;
+position: relative;
+border-left: 3px solid transparent;
+}
+#boards li:hover {
+background: rgba(52,152,219,0.1);
+border-left-color: rgba(52,152,219,0.5);
+}
+#boards li.selected {
+background: rgba(52,152,219,0.15);
+border-left-color: #3498db;
+font-weight: 500;
+}
+/* Колонки */
+.column {
+position: relative;
+background: #f8f9fa;
+border-radius: 10px;
+min-width: 280px;
+padding: 15px;
+box-sizing: border-box;
+box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+cursor: grab;
+user-select: none; /* Предотвращаем выделение текста при перетаскивании */
+}
+.column h3 {
+margin-top: 0;
+margin-bottom: 15px;
+color: #34495e;
+font-size: 16px;
+}
+.column.dragging {
+opacity: 0.5;
+transition: opacity 0.2s ease;
+}
+.column-drop-indicator {
+width: 2px;
+height: 100%;
+background: #3498db;
+margin: 0 8px;
+border-radius: 1px;
+display: block;
+position: relative;
+pointer-events: none;
+z-index: 1000;
+}
+.column-drop-indicator::before {
+content: '';
+position: absolute;
+left: -4px;
+top: 0;
+width: 10px;
+height: 10px;
+background: #3498db;
+border-radius: 50%;
+}
+/* Задачи */
+.task {
+position: relative;
+padding: 12px 15px 15px 15px;
+background: white;
+border-radius: 6px;
+margin: 8px 0;
+cursor: grab;
+box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+transition: all 0.2s ease, background-color 0.2s ease;
+border: 1px solid rgba(0,0,0,0.08);
+display: flex;
+flex-direction: column;
+gap: 8px;
+border-left: 2px solid #f1c40f; /* Желтый цвет для невыполненных задач */
+}
+.task:hover {
+transform: translateY(-2px);
+box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.task.done {
+opacity: 0.7;
+background: #f5f5f5;
+border-left-color: #2ecc71; /* Зеленый цвет для выполненных задач */
+}
+.task.info {
+border-left-color: #3498db; /* Синий цвет для информационных задач */
+}
+
+/* Стили для выбора цвета */
+.color-picker-group {
+margin-top: 20px;
+padding: 0 25px 0 0;
+}
+
+.color-picker-label {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 8px;
+color: #34495e;
+}
+
+.reset-color-btn {
+padding: 4px 8px;
+font-size: 14px;
+background: transparent;
+border: 1px solid rgba(0,0,0,0.1);
+border-radius: 4px;
+cursor: pointer;
+box-shadow: none;
+color: #666;
+}
+
+.reset-color-btn:hover {
+background: rgba(0,0,0,0.05);
+transform: none;
+box-shadow: none;
+}
+
+.dark-theme .reset-color-btn {
+border-color: rgba(255,255,255,0.1);
+color: #bdc3c7;
+}
+
+.dark-theme .reset-color-btn:hover {
+background: rgba(255,255,255,0.1);
+}
+
+.dark-theme .color-picker-label {
+color: #ecf0f1;
+}
+
+.color-options {
+display: flex;
+gap: 8px;
+flex-wrap: wrap;
+margin-bottom: 12px;
+}
+
+.color-option {
+width: 24px;
+height: 24px;
+border-radius: 4px;
+border: 2px solid transparent;
+cursor: pointer;
+position: relative;
+transition: all 0.2s ease;
+}
+
+.color-option:hover {
+transform: scale(1.1);
+box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.color-option.selected {
+border-color: #3498db;
+transform: scale(1.15);
+box-shadow: 0 3px 12px rgba(52,152,219,0.3);
+}
+
+.color-option.selected::after {
+content: '✓';
+position: absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+color: white;
+text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+font-size: 14px;
+}
+
+.dark-theme .color-option.selected {
+border-color: #5dade2;
+box-shadow: 0 3px 12px rgba(93,173,226,0.3);
+}
+
+/* Обновляем стиль для кастомного цвета */
+.color-option.custom.selected::after {
+display: none;
+}
+
+.color-option.custom {
+background: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%),
+            linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%);
+background-size: 8px 8px;
+background-position: 0 0, 4px 4px;
+}
+
+.color-option input[type="color"] {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+opacity: 0;
+cursor: pointer;
+}
+
+/* Обновляем стили для тасков с кастомными цветами */
+.task[data-custom-color] {
+background-color: var(--task-bg-color, white);
+}
+
+.dark-theme .task[data-custom-color] {
+background-color: var(--task-bg-color);
+}
+
+.task[data-custom-color].done {
+background-color: var(--task-done-bg-color, #f5f5f5);
+}
+
+.dark-theme .task[data-custom-color].done {
+background-color: var(--task-done-bg-color);
+}
+
+/* Поля ввода */
+input[type="text"] {
+width: 100%;
+padding: 8px 12px;
+border: 1px solid rgba(0,0,0,0.1);
+border-radius: 6px;
+margin: 8px 0;
+font-size: 14px;
+transition: all 0.2s ease;
+}
+input[type="text"]:focus {
+outline: none;
+border-color: #3498db;
+box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
+}
+/* Заголовки */
+h2 {
+color: #2c3e50;
+font-size: 20px;
+margin-bottom: 20px;
+}
+/* Стили для темной темы */
+body.dark-theme {
+background: #1a1a1a;
+color: #ecf0f1;
+}
+.dark-theme #sidebar {
+background: #2c3e50;
+border-right-color: rgba(255,255,255,0.1);
+}
+.dark-theme #boards li {
+background: #34495e;
+border-color: rgba(255,255,255,0.1);
+color: #ecf0f1;
+}
+.dark-theme #boards li:hover {
+background: rgba(52,152,219,0.2);
+border-left-color: rgba(52,152,219,0.6);
+}
+.dark-theme .column {
+background: #2c3e50;
+}
+.dark-theme .task {
+background: #34495e;
+border-color: rgba(255,255,255,0.1);
+color: #ecf0f1;
+border-left-color: #f39c12; /* Более темный желтый для темной темы */
+}
+.dark-theme .task.done {
+background: #2c3e50;
+border-left-color: #27ae60; /* Более темный зеленый для темной темы */
+}
+.dark-theme .task.info {
+border-left-color: #2980b9; /* Более темный синий для темной темы */
+}
+.dark-theme input[type="text"] {
+background: #34495e;
+border-color: rgba(255,255,255,0.1);
+color: #ecf0f1;
+}
+.dark-theme input[type="text"]:focus {
+border-color: #3498db;
+}
+/* Кнопка переключения темы */
+#theme-toggle {
+border-radius: 50%;
+width: 40px;
+height: 40px;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 25px;
+background: white;
+box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+line-height: 1;  /* Добавляем это */
+position: static; /* Убираем абсолютное позиционирование */
+margin-left: 15px;
+}
+
+#theme-toggle span {
+display: inline-block;
+/* margin-top: -2px; Небольшая корректировка положения */
+}
+.dark-theme #theme-toggle {
+background: #34495e;
+color: #ecf0f1;
+}
+/* Стили для скроллбара */
+::-webkit-scrollbar {
+width: 8px;
+height: 8px;
+}
+::-webkit-scrollbar-track {
+background: rgba(0,0,0,0.05);
+border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+background: rgba(0,0,0,0.2);
+border-radius: 4px;
+}
+.dark-theme ::-webkit-scrollbar-track {
+background: rgba(255,255,255,0.05);
+}
+.dark-theme ::-webkit-scrollbar-thumb {
+background: rgba(255,255,255,0.2);
+}
+/* Добавляем диалог после div#columns */
+.custom-dialog {
+position: fixed;
+background: white;
+z-index: 1000;
+border: none;
+border-radius: 12px;
+min-width: 500px;
+width: 90%;
+max-width: 800px;
+max-height: 90vh;
+overflow-y: auto;
+box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+margin: auto;
+padding: 30px 40px;
+}
+.custom-dialog h3 {
+margin-top: 0;
+color: #34495e;
+font-size: 24px;
+margin-bottom: 20px;
+}
+.form-group {
+margin-bottom: 16px;
+padding: 0 25px 0 0;
+}
+.form-group label {
+display: block;
+color: #34495e;
+font-size: 16px;
+margin-bottom: 8px;
+}
+.form-group input, .form-group textarea, .form-group select {
+width: 100%;
+border: 1px solid rgba(0,0,0,0.1);
+border-radius: 6px;
+padding: 12px;
+font-size: 16px;
+}
+.form-group textarea {
+height: 100px;
+min-height: 150px;
+resize: none;  /* Разрешаем растягивать только по вертикали */
+max-height: 500px; /* Ограничиваем максимальную высоту */
+}
+
+/* Стили для контейнера с нумерацией строк */
+.description-container {
+display: flex;
+border: 1px solid rgba(0,0,0,0.1);
+border-radius: 6px;
+font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+line-height: 1.5;
+margin-top: 8px;
+min-height: 150px;
+height: auto;
+max-height: 500px; /* Добавляем максимальную высоту */
+overflow: hidden;
+}
+
+.line-numbers {
+padding: 12px 8px;
+border-right: 1px solid rgba(0,0,0,0.1);
+background: rgba(0,0,0,0.02);
+text-align: right;
+color: #666;
+user-select: none;
+min-width: 40px;
+white-space: pre;
+overflow-y: hidden; /* Убираем скролл у номеров */
+}
+
+.dark-theme .line-numbers {
+background: rgba(255,255,255,0.05);
+border-right-color: rgba(255,255,255,0.1);
+color: #bdc3c7;
+}
+
+.description-container textarea {
+flex: 1;
+border: none !important;
+border-radius: 0 6px 6px 0 !important;
+margin: 0 !important;
+font-family: inherit;
+line-height: inherit;
+resize: none;
+padding: 12px;
+height: auto !important; /* Меняем на 100% */
+overflow-y: auto; /* Меняем на auto */
+}
+
+.dark-theme .description-container {
+border-color: rgba(255,255,255,0.2);
+}
+
+.dialog-buttons {
+display: flex;
+justify-content: space-between;
+margin-top: 30px;
+}
+.right-buttons {
+display: flex;
+gap: 15px;
+}
+.danger {
+background: #e74c3c;
+}
+.danger:hover {
+background: #c0392b;
+}
+.dark-theme .danger {
+background: #c0392b;
+}
+.dark-theme .danger:hover {
+background: #e74c3c;
+}
+.custom-dialog::backdrop {
+background: rgba(0,0,0,0.5);
+}
+.dark-theme .custom-dialog {
+background: #2c3e50;
+color: #ecf0f1;
+}
+.dark-theme .custom-dialog h3 {
+color: #ecf0f1;
+}
+.dark-theme .form-group label {
+color: #ecf0f1;
+}
+.dark-theme .form-group input, .dark-theme .form-group textarea {
+background: #34495e;
+border-color: rgba(255,255,255,0.2);
+color: #ecf0f1;
+}
+.dark-theme .form-group input:focus, .dark-theme .form-group textarea:focus {
+border-color: #3498db;
+box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
+}
+.dark-theme button.secondary {
+background: #34495e;
+color: #ecf0f1;
+}
+.dark-theme button.secondary:hover {
+background: #2c3e50;
+}
+/* Стиль для кнопки добавления задачи */
+.add-btn {
+width: 100%;
+text-align: left;
+background: rgba(52,152,219,0.1);
+color: #3498db;
+margin: 8px 0;
+}
+.column .add-btn {
+margin: 8px 0 0 0;
+}
+.dark-theme .add-btn {
+background: rgba(52,152,219,0.2);
+color: #3498db;
+}
+.task-content {
+display: flex;
+flex-direction: column;
+gap: 4px;
+flex: 1;
+min-width: 0;
+padding-right: 25px;    /* Добавляем отступ справа для иконки */
+}
+.task-description {
+font-size: 0.9em;
+color: #666;
+white-space: pre-wrap;
+overflow: hidden;
+font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+.dark-theme .task-description {
+color: #bdc3c7;
+}
+.form-group.checkbox {
+display: flex;
+align-items: center;
+gap: 8px;
+margin-top: 20px;
+}
+.form-group.checkbox input[type="checkbox"] {
+width: 18px;
+height: 18px;
+margin: 0;
+}
+.form-group.checkbox label {
+margin: 0;
+cursor: pointer;
+}
+/* Обновляем цвета для тёмной темы на всей странице */
+.dark-theme {
+color: #ecf0f1;
+}
+.dark-theme h2, .dark-theme h3, .dark-theme label, .dark-theme .task-title {
+color: #ecf0f1;
+}
+.dark-theme .column h3 {
+color: #ecf0f1;
+}
+.dark-theme input[type="text"], .dark-theme textarea {
+background: #34495e;
+border-color: rgba(255,255,255,0.2);
+color: #ecf0f1;
+}
+.dark-theme input[type="text"]:focus, .dark-theme textarea:focus {
+border-color: #3498db;
+box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
+}
+.custom-dialog form {
+margin: 0 auto;
+}
+.task-header {
+display: flex;
+align-items: flex-start;
+gap: 8px; /* Уменьшаем отступ между элементами */
+position: relative;
+}
+.task input[type="checkbox"] {
+width: 16px;
+height: 16px;
+margin-top: 3px;
+cursor: pointer;
+}
+.task-title {
+font-weight: 500;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+margin-bottom: 4px;
+}
+/* Стили для заголовка диалога */
+.dialog-header {
+margin-bottom: 30px;
+}
+.dialog-breadcrumbs {
+font-size: 14px;
+color: #666;
+margin-bottom: 8px;
+}
+.dark-theme .dialog-breadcrumbs {
+color: #bdc3c7;
+}
+.dialog-header h3 {
+margin: 0;
+}
+/* Добавляем новые стили для индикатора вставки */
+.task-drop-indicator {
+height: 2px;
+background: #3498db;
+margin: 8px 0;
+border-radius: 1px;
+display: block;
+position: relative;
+pointer-events: none;
+}
+.task-drop-indicator::before {
+content: '';
+position: absolute;
+left: -5px;
+top: -4px;
+width: 10px;
+height: 10px;
+background: #3498db;
+border-radius: 50%;
+}
+.task.dragging {
+opacity: 0.5;
+transition: opacity 0.2s ease;
+}
+/* Добавляем стили для группы времени сброса */
+.reset-time-group {
+margin-top: 10px;
+margin-left: 26px;
+font-size: 14px;
+}
+.reset-time-group label {
+display: inline-block;
+margin-right: 10px;
+}
+.reset-time-group input[type="time"] {
+padding: 4px 8px;
+border-radius: 4px;
+border: 1px solid rgba(0,0,0,0.1);
+margin-right: 10px;
+}
+.reset-time-group small {
+display: block;
+color: #666;
+margin-top: 4px;
+}
+.dark-theme .reset-time-group small {
+color: #bdc3c7;
+}
+.dark-theme .reset-time-group input[type="time"] {
+background: #34495e;
+border-color: rgba(255,255,255,0.2);
+color: #ecf0f1;
+}
+/* Стили для информации о сбросе */
+.task-reset-info {
+color: #666;
+background: rgba(0,0,0,0.05);
+padding: 2px 6px;
+border-radius: 4px;
+line-height: 1.4;
+right: 8px;
+bottom: 8px;
+font-size: 11px;
+white-space: nowrap;
+margin-left: auto; /* Прижимаем к правому краю */
+}
+.dark-theme .task-reset-info {
+color: #bdc3c7;
+background: rgba(255,255,255,0.1);
+}
+/* Обновляем стили для иконок и информации о сбросе */
+.task-icons {
+position: absolute;
+right: 8px;
+top: 50%;
+transform: translateY(-50%);
+display: flex;
+align-items: center;
+gap: 8px;
+}
+.task-repeat-icon {
+font-size: 14px;
+color: #3498db;
+line-height: 1;
+position: absolute;
+right: 8px;
+top: 8px;
+width: 20px;
+height: 20px;
+display: flex;
+align-items: center;
+justify-content: center;
+background: rgba(52,152,219,0.1);
+border-radius: 4px;
+padding: 3px;
+}
+.dark-theme .task-repeat-icon {
+color: #5dade2;
+background: rgba(52,152,219,0.15);
+}
+/* Добавляем стили для группы времени */
+.reset-time-controls {
+display: flex;
+align-items: center;
+gap: 10px;
+margin-bottom: 4px;
+}
+.time-input-group {
+display: flex;
+align-items: center;
+gap: 4px;
+}
+.clear-time-btn {
+padding: 2px 6px;
+background: #e74c3c;
+color: white;
+border: none;
+border-radius: 4px;
+cursor: pointer;
+font-size: 16px;
+line-height: 1;
+height: 24px;
+}
+.clear-time-btn:hover {
+background: #c0392b;
+}
+.dark-theme .clear-time-btn {
+background: #c0392b;
+}
+.dark-theme .clear-time-btn:hover {
+background: #e74c3c;
+}
+
+/* Добавляем стили для шапки */
+.main-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 20px;
+padding: 20px 0;
+border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.dark-theme .main-header {
+border-bottom-color: rgba(255,255,255,0.1);
+}
+
+/* Стили для заголовка доски */
+#board-title {
+font-size: 28px;
+font-weight: 500;
+margin: 0;
+color: #2c3e50;
+transition: color 0.2s ease;
+}
+
+.dark-theme #board-title {
+color: #ecf0f1;
+}
+
+#board-title:hover {
+color: #3498db;
+}
+
+.dark-theme #board-title:hover {
+color: #5dade2;
+}
+/* Добавляем стили для метки времени выполнения */
+.task-done-time {
+left: 8px;
+bottom: 8px;
+color: #666;
+font-size: 11px;
+opacity: 0.8;
+text-decoration: none !important; /* Предотвращаем перечеркивание */
+white-space: nowrap;
+}
+
+.dark-theme .task-done-time {
+color: #bdc3c7;
+}
+
+/* Стили для бокового меню и кнопки переключения */
+.sidebar-toggle {
+display: none; /* По умолчанию скрыта на десктопе */
+position: fixed;
+left: 10px;
+top: 10px;
+z-index: 1000;
+padding: 8px 12px;
+font-size: 20px;
+background: #3498db;
+border-radius: 6px;
+}
+
+/* Добавляем класс для скрытого состояния */
+@media (max-width: 768px) {
+.sidebar-toggle {
+    display: block;
+}
+
+#sidebar {
+    position: fixed;
+    left: -250px;
+    top: 0;
+    bottom: 0;
+    z-index: 999;
+    transition: left 0.3s ease;
+}
+
+#sidebar.open {
+    left: 0;
+}
+
+/* Сдвигаем основной контент */
+#main {
+    margin-left: 0;
+    transition: margin-left 0.3s ease;
+}
+
+body.sidebar-open #main {
+    margin-left: 250px;
+}
+
+/* Затемнение фона при открытом меню */
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 998;
+}
+
+body.sidebar-open .sidebar-backdrop {
+    display: block;
+}
+}
+
+.dark-theme #boards li.selected {
+background: rgba(52,152,219,0.25);
+border-left-color: #5dade2;
+}
+
+/* Обновляем стили для кнопки добавления доски */
+#sidebar .add-btn {
+margin: 15px 0;
+width: 100%;
+text-align: left;
+background: rgba(52,152,219,0.1);
+color: #3498db;
+border-radius: 6px;
+transition: all 0.2s ease;
+}
+
+#sidebar .add-btn:hover {
+background: rgba(52,152,219,0.2);
+transform: translateY(-1px);
+}
+
+.dark-theme #sidebar .add-btn {
+background: rgba(52,152,219,0.2);
+}
+
+.dark-theme #sidebar .add-btn:hover {
+background: rgba(52,152,219,0.3);
+}
+
+/* Стили для кнопок форматирования */
+.description-controls {
+margin-bottom: 8px;
+}
+
+.icon-button {
+padding: 4px 8px;
+font-size: 16px;
+background: transparent;
+border: 1px solid rgba(0,0,0,0.1);
+box-shadow: none;
+}
+
+.icon-button:hover {
+background: rgba(52,152,219,0.1);
+transform: none;
+box-shadow: none;
+}
+
+.dark-theme .icon-button {
+border-color: rgba(255,255,255,0.1);
+color: #ecf0f1;
+}
+
+.dark-theme .icon-button:hover {
+background: rgba(52,152,219,0.2);
+}
+
+/* Стили для ссылок в описании задачи */
+.task-description a, .task-title a {
+color: #3498db;
+text-decoration: none;
+font-family: inherit; /* Наследуем шрифт от родителя */
+}
+
+.task-description a:hover, .task-title a:hover {
+text-decoration: underline;
+}
+
+/* Добавляем стили для посещенных ссылок */
+.task-description a:visited, .task-title a:visited {
+color: #3498db; /* Тот же цвет, что и для обычных ссылок */
+}
+
+/* Стили для тёмной темы */
+.dark-theme .task-description a,
+.dark-theme .task-title a,
+.dark-theme .task-description a:visited,
+.dark-theme .task-title a:visited {
+color: #5dade2;
+}
+
+/* Стили для сабтасков */
+.task.subtask {
+font-size: 0.95em;
+margin: 8px 0 0 0;
+}
+
+/* Иконка для сворачивания/разворачивания сабтасков */
+.task-expand-toggle {
+cursor: pointer;
+/* width: calc(100% + 30px); Компенсируем левый и правый padding */
+height: 12px;
+display: grid;
+grid-template-columns: 1fr auto 1fr;
+/* align-items: center; */
+color: #666;
+user-select: none;
+background: rgba(0,0,0,0.03);
+border-radius: 0 0 6px 6px;
+transition: all 0.2s ease;
+border-top: 1px solid rgba(0,0,0,0.05);
+padding: 4px 0px;
+margin: 0 -15px -15px -15px;
+}
+
+.task-expand-toggle:hover {
+background: rgba(0,0,0,0.05);
+color: #333;
+}
+
+.dark-theme .task-expand-toggle {
+color: #bdc3c7;
+background: rgba(255,255,255,0.05);
+border-top-color: rgba(255,255,255,0.1);
+}
+
+.dark-theme .task-expand-toggle:hover {
+background: rgba(255,255,255,0.1);
+color: #ecf0f1;
+}
+
+/* Добавляем стрелку */
+.task-expand-toggle .toggle-arrow {
+grid-column: 2;
+display: inline-block;
+width: 8px;
+height: 8px;
+border: 2px solid currentColor;
+border-width: 0 2px 2px 0;
+transform: rotate(45deg) translateY(-3px);
+transition: transform 0.2s ease;
+justify-self: center;
+}
+
+.task-expand-toggle.collapsed .toggle-arrow {
+transform: rotate(-45deg);
+}
+
+/* Добавляем стили для статистики сабтасков */
+.subtasks-stats {
+grid-column: 3;
+font-size: 10px;
+display: flex;
+align-items: center;
+gap: 4px;
+background: rgba(0,0,0,0.05);
+padding: 2px 6px;
+border-radius: 4px;
+justify-self: end;
+margin: -3px 1px 0 0;
+}
+
+.dark-theme .subtasks-stats {
+background: rgba(255,255,255,0.1);
+}
+
+.subtasks-stats .stats-done {
+color: #27ae60;
+}
+
+.dark-theme .subtasks-stats .stats-done {
+color: #2ecc71;
+}
+
+.subtasks-stats .stats-total {
+color: #666;
+}
+
+.dark-theme .subtasks-stats .stats-total {
+color: #bdc3c7;
+}
+
+/* Контейнер для сабтасков */
+.subtasks-container {
+transition: height 0.3s ease;
+}
+
+/* Добавим стили для индикатора создания сабтаска */
+.subtask-drop-indicator {
+position: absolute;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+background: rgba(52, 152, 219, 0.1);
+border: 2px dashed #3498db;
+border-radius: 6px;
+display: flex;
+align-items: center;
+justify-content: center;
+pointer-events: none;
+z-index: 10;
+}
+
+.subtask-drop-indicator::after {
+content: '➕ Создать подзадачу';
+background: rgba(52, 152, 219, 0.9);
+color: white;
+padding: 4px 8px;
+border-radius: 4px;
+font-size: 12px;
+}
+
+.dark-theme .subtask-drop-indicator {
+background: rgba(52, 152, 219, 0.2);
+}
+
+.dark-theme .subtasks-container {
+border-left-color: #5dade2;
+}
+
+/* Обновляем стили для выполненных задач и метки времени */
+.done > .task-header {
+text-decoration: line-through;
+opacity: 0.7;
+}
+
+/* Добавляем стили для контейнера индикаторов времени */
+.task-time-indicators {
+display: flex;
+justify-content: space-between;
+align-items: center;
+gap: 8px;
+font-size: 11px;
+color: #666;
+}
+
+.dark-theme .task-time-indicators {
+color: #bdc3c7;
+}
+/* Добавляем отступ для заголовка, когда нет чекбокса */
+.task.info .task-content {
+margin-left: 8px;
+}
+
+/* Стили для заголовка колонки и статистики */
+.column-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 15px;
+}
+
+.column-header h3 {
+margin: 0;
+flex-grow: 1;
+}
+
+.column-stats {
+display: flex;
+align-items: center;
+gap: 8px;
+font-size: 12px;
+color: #666;
+background: rgba(0,0,0,0.05);
+padding: 4px 8px;
+border-radius: 6px;
+}
+
+.dark-theme .column-stats {
+color: #bdc3c7;
+background: rgba(255,255,255,0.1);
+}
+
+.stats-done {
+color: #27ae60;
+}
+
+.dark-theme .stats-done {
+color: #2ecc71;
+}
+
+.stats-total {
+color: #666;
+}
+
+.dark-theme .stats-total {
+color: #bdc3c7;
+}
+
+/* Стили для кнопок в сайдбаре */
+.sidebar-buttons {
+margin-top: auto;
+padding-top: 20px;
+display: flex;
+flex-direction: column;
+gap: 10px;
+}
+
+.secondary-btn {
+padding: 8px 16px;
+border-radius: 6px;
+border: 1px solid rgba(0,0,0,0.1);
+background: transparent;
+color: #666;
+cursor: pointer;
+transition: all 0.2s ease;
+font-size: 14px;
+width: 100%;
+text-align: center;
+}
+
+.secondary-btn:hover {
+background: rgba(0,0,0,0.05);
+transform: translateY(-1px);
+}
+
+.dark-theme .secondary-btn {
+border-color: rgba(255,255,255,0.1);
+color: #bdc3c7;
+}
+
+.dark-theme .secondary-btn:hover {
+background: rgba(255,255,255,0.1);
+}
+
+/* Добавляем стили для пульсации */
+@keyframes pulse {
+0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(215, 30, 9, 0.918);
+}
+50% {
+    transform: scale(1.005);
+}
+100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 14px rgba(215, 29, 9, 0);
+}
+}
+
+.task.deadline-warning {
+animation: pulse 1s infinite;
+position: relative;
+z-index: 10;
+}
+
+.task.deadline-warning::before {
+content: '';
+position: absolute;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+border-radius: 6px;
+animation: glow 0.5s infinite alternate;
+pointer-events: none;
+}
+
+@keyframes glow {
+0% {
+    background: rgba(219, 33, 12, 0.459);
+}
+100% {
+    background: rgba(215, 29, 9, 0);
+}
+}
+
+.dark-theme .task.deadline-warning {
+animation: pulse 1s infinite;
+}
+
+.dark-theme .task.deadline-warning::before {
+animation: darkGlow 0.5s infinite alternate;
+}
+
+@keyframes darkGlow {
+0% {
+    background: rgba(215, 30, 9, 0.438);
+}
+100% {
+    background: rgba(215, 29, 9, 0);
+}
+}
+
+/* Стили для индикатора дедлайна */
+.task-deadline-info {
+color: rgba(00, 00, 00, 0.96);
+background: rgba(211, 203, 202, 0.78);
+padding: 2px 6px;
+border-radius: 4px;
+line-height: 1.4;
+font-size: 11px;
+white-space: nowrap;
+margin-left: auto;
+}
+
+.dark-theme .task-deadline-info {
+color: rgba(218, 210, 209, 0.96);
+background: rgba(224, 209, 178, 0.2);
+}
+
+.task-deadline-info.overdue {
+background: rgba(231, 76, 60, 0.2);
+font-weight: 500;
+}
+
+.dark-theme .task-deadline-info.overdue {
+background: rgba(231, 76, 60, 0.3);
+}
+
+/* Добавляем стили для календаря */
+#calendar-view-content {
+padding: 20px;
+margin: 0 auto;
+display: flex;
+flex-direction: column;
+height: calc(100vh - 100px);
+min-height: 0;
+}
+
+.calendar-header {
+margin-bottom: 20px;
+flex-shrink: 0;
+}
+
+.calendar-container {
+display: flex;
+gap: 20px;
+flex: 1;
+min-height: 0;
+}
+
+.main-calendar-wrapper {
+flex: 1;
+min-width: 0;
+display: flex;
+flex-direction: column;
+}
+
+.main-calendar {
+flex: 1;
+min-height: 0;
+display: flex;
+flex-direction: column;
+}
+
+.calendar-grid {
+display: grid;
+grid-template-columns: repeat(7, 1fr);
+gap: 6px;
+flex: 1;
+min-height: 0;
+}
+
+.calendar-day-header {
+text-align: center;
+font-weight: 500;
+color: #666;
+padding: 8px;
+font-size: 14px;
+}
+
+.dark-theme .calendar-day-header {
+color: #bdc3c7;
+}
+
+.calendar-day {
+aspect-ratio: 1;
+border-radius: 8px;
+background: white;
+padding: 8px;
+position: relative;
+cursor: pointer;
+transition: all 0.2s ease;
+min-height: 120px;
+margin: 2px;
+}
+
+.dark-theme .calendar-day {
+background: #34495e;
+}
+
+.calendar-day:hover {
+transform: translateY(-2px);
+box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+z-index: 10;
+}
+
+.dark-theme .calendar-day:hover {
+box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.calendar-day.other-month {
+opacity: 0.5;
+}
+
+.calendar-day.today {
+border: 2px solid #3498db;
+}
+
+.calendar-day.selected {
+background: rgba(52,152,219,0.1);
+transform: translateY(-2px);
+box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+z-index: 20;
+}
+
+.dark-theme .calendar-day.selected {
+background: rgba(52,152,219,0.2);
+box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.calendar-day .task-list {
+display: none;
+position: absolute;
+top: calc(100% + 5px);
+left: 50%;
+transform: translateX(-50%);
+background: white;
+border-radius: 8px;
+padding: 0;
+min-width: 280px; /* Увеличиваем минимальную ширину для карточек */
+box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+z-index: 100;
+}
+
+.calendar-day .task-list-content {
+display: flex;
+flex-direction: column;
+gap: 8px;
+max-height: 400px; /* Ограничиваем максимальную высоту */
+overflow-y: auto;
+padding: 16px;
+}
+
+.dark-theme .calendar-day .task-list {
+background: #2c3e50;
+box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.calendar-day:hover .task-list,
+.calendar-day.selected .task-list {
+display: block;
+}
+
+/* Добавляем стрелочку для всплывающего списка */
+.calendar-day .task-list::before {
+content: '';
+position: absolute;
+top: -6px;
+left: 50%;
+transform: translateX(-50%) rotate(45deg);
+width: 12px;
+height: 12px;
+background: inherit;
+box-shadow: -2px -2px 4px rgba(0,0,0,0.05);
+z-index: -1; /* Помещаем стрелку под контент */
+}
+
+.dark-theme .calendar-day .task-list::before {
+box-shadow: -2px -2px 4px rgba(0,0,0,0.2);
+}
+
+.task-list-item {
+padding: 5px;
+border-radius: 4px;
+margin-bottom: 5px;
+cursor: pointer;
+transition: background 0.2s ease;
+}
+
+.task-list-item:hover {
+background: rgba(52,152,219,0.1);
+}
+
+.dark-theme .task-list-item:hover {
+background: rgba(52,152,219,0.2);
+}
+
+.task-list-item.done {
+text-decoration: line-through;
+opacity: 0.7;
+}
+
+.task-list-item.overdue {
+color: #e74c3c;
+}
+
+.mini-calendars {
+justify-content: center;
+margin: auto;
+width: 400px;
+flex-shrink: 0;
+display: flex;
+flex-direction: column;
+gap: 20px;
+overflow-y: auto;
+padding: 0 5px;
+}
+
+.mini-calendar {
+flex: 1;
+flex-shrink: 0;
+border-radius: 8px;
+padding: 10px;
+}
+
+.mini-calendar h4 {
+margin: 0 0 10px 0;
+font-size: 14px;
+color: #666;
+}
+
+.dark-theme .mini-calendar h4 {
+color: #bdc3c7;
+}
+
+.mini-calendar .calendar-grid {
+gap: 2px;
+}
+
+.mini-calendar .calendar-day {
+padding: 4px;
+min-height: 35px;
+border-radius: 4px;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.calendar-day .date {
+font-size: 16px;
+margin-bottom: 8px;
+font-weight: 500;
+}
+
+.mini-calendar .calendar-day .date {
+font-size: 11px;
+}
+
+.mini-calendar .calendar-day-header {
+padding: 4px 2px;
+font-size: 11px;
+}
+
+.calendar-item {
+cursor: pointer;
+margin: 0;
+padding: 12px 20px;
+transition: all 0.2s ease;
+position: relative;
+border-left: 3px solid transparent;
+}
+
+.calendar-item:hover {
+background: rgba(52,152,219,0.1);
+border-left-color: rgba(52,152,219,0.5);
+}
+
+.calendar-item.selected {
+background: rgba(52,152,219,0.15);
+border-left-color: #3498db;
+font-weight: 500;
+}
+
+/* Добавляем стили для статичного меню */
+#static-menu {
+margin: 0 -20px 10px;
+}
+
+#static-menu .calendar-item {
+margin: 0;
+}
+
+/* Обновляем стили для задач в календаре */
+.calendar-day .task {
+margin: 0; /* Сбрасываем внешние отступы */
+cursor: pointer;
+}
+
+/* Добавляем стили для скролла в списке задач */
+.calendar-day .task-list-content::-webkit-scrollbar {
+width: 6px;
+}
+
+.calendar-day .task-list-content::-webkit-scrollbar-track {
+background: rgba(0,0,0,0.05);
+border-radius: 3px;
+}
+
+.calendar-day .task-list-content::-webkit-scrollbar-thumb {
+background: rgba(0,0,0,0.2);
+border-radius: 3px;
+}
+
+.dark-theme .calendar-day .task-list-content::-webkit-scrollbar-track {
+background: rgba(255,255,255,0.05);
+}
+
+.dark-theme .calendar-day .task-list-content::-webkit-scrollbar-thumb {
+background: rgba(255,255,255,0.2);
+}
+
+.calendar-nav {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 20px;
+}
+
+.calendar-nav h3 {
+font-size: 24px;
+margin: 0;
+min-width: 200px;
+text-align: center;
+}
+
+.calendar-nav .icon-button {
+padding: 8px 12px;
+font-size: 16px;
+background: transparent;
+border: 1px solid rgba(0,0,0,0.1);
+border-radius: 4px;
+cursor: pointer;
+color: #666;
+transition: all 0.2s ease;
+}
+
+.dark-theme .calendar-nav .icon-button {
+border-color: rgba(255,255,255,0.1);
+color: #bdc3c7;
+}
+
+.calendar-nav .icon-button:hover {
+background: rgba(52,152,219,0.1);
+}
+
+.dark-theme .calendar-nav .icon-button:hover {
+background: rgba(52,152,219,0.2);
+}
+
+.task-markers {
+display: flex;
+gap: 3px;
+flex-wrap: wrap;
+margin-top: 4px;
+}
+
+.task-marker {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+background: #3498db;
+}
+
+.task-marker.overdue {
+animation: pulse 1s infinite;
+}
+
+.task-marker.done {
+box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.3);
+}
+
+@media (max-width: 1800px) {
+.calendar-container {
+    flex-direction: column;
+}
+
+.mini-calendars {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 10px;
+}
+
+.calendar-day {
+    min-height: 0;
+}
+
+.mini-calendars.hidden {
+    display: none;
+}
+
+.main-content {
+    overflow: auto;
+}
+}
+
+@media (max-width: 1080px) {
+.calendar-container {
+    width: 500px;
+}
+
+.mini-calendars {
+    gap: 2px;
+    flex-direction: column;
+}
+
+.calendar-grid {
+    gap: 2px;
+}
+}
