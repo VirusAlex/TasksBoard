@@ -1,4 +1,18 @@
 import { generateId, formatDateTime, formatTimeLeft, formatDeadlineTime } from './utils.js';
+// import { saveToStorage, loadFromStorage } from './storage.js';
+
+// Импорты новых модулей
+import { 
+    showConfirmDialog, 
+    renderLinkedText, 
+    hexToRGB, 
+    updateLineNumbers 
+} from './modules/uiComponents.js';
+import * as DragDrop from './modules/dragAndDrop.js';
+import * as TaskManager from './modules/taskModule.js';
+import * as ColumnManager from './modules/columnModule.js';
+import * as BoardManager from './modules/boardModule.js';
+import * as Calendar from './modules/calendarModule.js';
 
 function initApp() {
 
@@ -1123,21 +1137,6 @@ function initApp() {
     addTaskDragHandlers(taskEl);
   }
 
-  // Функция для показа диалога подтверждения
-  async function showConfirmDialog(message) {
-    const dialog = document.getElementById('confirm-dialog');
-    const messageEl = dialog.querySelector('#confirm-message');
-    messageEl.textContent = message;
-
-    dialog.showModal();
-
-    return new Promise((resolve) => {
-      dialog.addEventListener('close', () => {
-        resolve(dialog.returnValue === 'confirm');
-      }, { once: true });
-    });
-  }
-
   // Добавляем после остальных обработчиков
   const sidebarToggle = document.getElementById('sidebar-toggle');
   const sidebar = document.getElementById('sidebar');
@@ -1213,29 +1212,6 @@ function initApp() {
           link +
           description.value.substring(end);
     }
-  }
-
-  // Функции форматирования (добавляем в начало скрипта, после объявления переменных)
-  function formatDescription(text) {
-    // Сначала обрабатываем Markdown-ссылки [text](url)
-    let formatted = text.replace(
-        /\[([^\]]+)\]\(([^)]+)\)/g,
-        '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
-    );
-
-    // Затем обрабатываем простые URL, исключая уже обработанные в тегах <a>
-    formatted = formatted.replace(
-        /(?<!["=])(https?:\/\/[^\s<]+)/g,
-        '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-    );
-
-    return formatted;
-  }
-
-  // Обновляем рендеринг текста с ссылками
-  function renderLinkedText(container, text, className = '') {
-    container.className = className;
-    container.innerHTML = formatDescription(text);
   }
 
   // Функции для работы с сабтасками
@@ -1745,70 +1721,6 @@ function initApp() {
     document.querySelectorAll('.subtask-drop-indicator').forEach(el => el.remove());
     document.querySelectorAll('.task-drop-indicator').forEach(el => el.remove());
     document.querySelectorAll('.column-drop-indicator').forEach(el => el.remove());
-  }
-
-  function hexToRGB(hex) {
-    if (!hex) return { r: 0, g: 0, b: 0 };
-    // Убираем # если есть
-    hex = hex.replace('#', '');
-
-    // Парсим значения RGB
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-
-    return { r, g, b };
-  }
-
-  function updateLineNumbers() {
-    const textarea = document.getElementById('task-description');
-    const lineNumbers = textarea.closest('.description-container').querySelector('.line-numbers');
-
-    // Разбиваем текст на строки по реальным переносам
-    const lines = textarea.value.split('\n');
-
-    // Создаем массив номеров, где для каждой строки считаем её визуальную высоту
-    const numbers = [];
-    const tempDiv = document.createElement('div');
-    tempDiv.style.cssText = `
-      position: absolute;
-      visibility: hidden;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      width: ${textarea.clientWidth}px;
-      font-family: ${getComputedStyle(textarea).fontFamily};
-      font-size: ${getComputedStyle(textarea).fontSize};
-      line-height: ${getComputedStyle(textarea).lineHeight};
-      padding: ${getComputedStyle(textarea).padding};
-    `;
-    document.body.appendChild(tempDiv);
-
-    let lineNumber = 1;
-    lines.forEach(line => {
-      // Считаем, сколько визуальных строк занимает текущая строка
-      tempDiv.textContent = line;
-      const lineHeight = parseInt(getComputedStyle(textarea).lineHeight);
-      const visualLines = Math.ceil(tempDiv.clientHeight / lineHeight);
-
-      // Добавляем номер только для первой визуальной строки
-      numbers.push(lineNumber);
-      // Для остальных визуальных строк добавляем пустые строки
-      for (let i = 2; i < visualLines; i++) {
-        numbers.push('');
-      }
-      lineNumber++;
-    });
-
-    document.body.removeChild(tempDiv);
-
-    // Обновляем содержимое
-    lineNumbers.textContent = numbers.join('\n');
-
-    // Синхронизируем высоту
-    //lineNumbers.style.height = `${textarea.scrollHeight}px`;
-
-    // Синхронизируем скролл
-    lineNumbers.scrollTop = textarea.scrollTop;
   }
 
   // Добавляем после остальных обработчиков
