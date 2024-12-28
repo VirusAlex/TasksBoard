@@ -4,6 +4,8 @@ import { showConfirmDialog } from './uiComponents.js';
 import { getSelectedBoard } from './boardModule.js';
 import * as TaskManager from './taskModule.js';
 import { showColumnDropIndicator, handleColumnDrop, removeAllDropIndicators } from './dragAndDrop.js';
+import * as StateModule from './stateModule.js';
+import * as RenderModule from './renderModule.js';
 
 // Базовые операции с колонками
 export function createColumn(boardId, columnData) {
@@ -58,7 +60,7 @@ export function getColumnStats(column) {
 }
 
 // Функции для работы с диалогом колонки
-export async function openColumnDialog(existingColumn = null) {
+export function openColumnDialog(existingColumn = null) {
     const dialog = document.getElementById('column-dialog');
     const form = dialog.querySelector('form');
     const nameInput = document.getElementById('column-name');
@@ -101,33 +103,26 @@ export async function openColumnDialog(existingColumn = null) {
 
     dialog.showModal();
 
-    return new Promise((resolve) => {
-        form.onsubmit = (e) => {
-            e.preventDefault();
-            const name = nameInput.value.trim();
-            if (!name) return;
+    form.onsubmit = (e) => {
+        e.preventDefault();
+        const name = nameInput.value.trim();
+        if (!name) return;
 
-            if (existingColumn) {
-                // Обновляем существующую колонку
-                updateColumn(existingColumn.id, { name });
-                resolve(true);
-            } else {
-                // Создаем новую колонку
-                const newColumn = createColumn(board.id, { name });
-                board.columns.push(newColumn);
-                resolve(true);
-            }
-            dialog.close();
-        };
+        if (existingColumn) {
+            // Обновляем существующую колонку
+            updateColumn(existingColumn.id, { name });
+        } else {
+            // Создаем новую колонку
+            const newColumn = createColumn(board.id, { name });
+            board.columns.push(newColumn);
+        }
+        dialog.close();
+    };
 
-        dialog.addEventListener('close', () => {
-            if (dialog.returnValue === 'deleted') {
-                resolve(true);
-            } else if (!form.wasSubmitted) {
-                resolve(false);
-            }
-        }, { once: true });
-    });
+    dialog.addEventListener('close', () => {
+        StateModule.saveState();
+        RenderModule.render();
+    }, { once: true });
 }
 
 // Функция рендеринга колонки
@@ -191,8 +186,8 @@ export function renderColumn(column) {
     const addTaskBtn = document.createElement('button');
     addTaskBtn.className = 'add-btn';
     addTaskBtn.textContent = '+ Добавить задачу';
-    addTaskBtn.onclick = async () => {
-        await TaskManager.openTaskDialog(column);
+    addTaskBtn.onclick = () => {
+        TaskManager.openTaskDialog(column);
     };
     colEl.appendChild(addTaskBtn);
 

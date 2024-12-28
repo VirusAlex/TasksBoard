@@ -14,6 +14,7 @@ import * as ColumnManager from './modules/columnModule.js';
 import * as BoardManager from './modules/boardModule.js';
 import * as Calendar from './modules/calendarModule.js';
 import * as StateModule from './modules/stateModule.js';
+import * as RenderModule from './modules/renderModule.js';
 
 function initApp() {
 
@@ -70,126 +71,15 @@ function initApp() {
     });
   });
 
-  function renderBoard() {
-    const board = BoardManager.getSelectedBoard();
-    if (!board) {
-      boardTitleEl.textContent = 'Выберите доску или создайте новую';
-      columnsEl.innerHTML = '';
-      return;
-    }
-
-    // Делаем заголовок доски редактируемым
-    boardTitleEl.textContent = board.name;
-    boardTitleEl.style.cursor = 'pointer';
-    boardTitleEl.title = 'Дважды щелкните для редактирования';
-
-    // Добавляем обработчик двойного клика для редактирования
-    boardTitleEl.addEventListener('dblclick', async () => {
-      const result = await BoardManager.openBoardDialog(board);
-      if (result) {
-        StateModule.saveState();
-        render();
-      }
-    });
-
-    columnsEl.innerHTML = '';
-
-    board.columns.forEach(column => {
-      const columnElement = ColumnManager.renderColumn(column);
-        
-      // Добавляем обработчики drag & drop для колонки
-      columnElement.addEventListener('dragover', (e) => {
-          const draggingTask = document.querySelector('.task.dragging');
-          const draggingCol = document.querySelector('.column.dragging');
-          if (!draggingTask && !draggingCol) return;
-
-          if (draggingTask) {
-              DragDrop.showTaskDropIndicator(e, columnElement, draggingTask);
-          } else {
-              if (draggingCol === columnElement) return;
-              DragDrop.showColumnDropIndicator(e, draggingCol);
-          }
-      });
-
-      columnElement.addEventListener('drop', (e) => {
-          const draggingTask = document.querySelector('.task.dragging');
-          const draggingCol = document.querySelector('.column.dragging');
-          if (!draggingTask && !draggingCol) return;
-
-          e.preventDefault();
-          e.stopPropagation();
-
-          if (draggingTask) {
-              DragDrop.handleTaskDrop(e, columnElement);
-          } else {
-              DragDrop.handleColumnDrop(e);
-          }
-      });
-
-      columnsEl.appendChild(columnElement);
-    });
-  }
-
-  // Обновляем функцию перемещения задачи
-  function moveTaskToColumn(taskId, newColumnId, position = -1) {
-    const board = BoardManager.getSelectedBoard();
-    const task = findTaskById(taskId);
-
-    if (!task) return;
-
-    // Удаляем задачу из текущего места
-    removeTaskFromCurrentPosition(task);
-
-    // Сбрасываем parentId, так как задача теперь не сабтаск
-    task.parentId = null;
-
-    // Находим целевую колонку
-    const targetColumn = board.columns.find(col => col.id === newColumnId);
-    if (!targetColumn) return;
-
-    // Вставляем задачу в нужную позицию
-    if (position >= 0) {
-      targetColumn.tasks.splice(position, 0, task);
-    } else {
-      targetColumn.tasks.push(task);
-    }
-
-    StateModule.saveState();
-    render();
-  }
-
-  addBoardBtn.addEventListener('click', async () => {
-    const result = await BoardManager.openBoardDialog();
-    if (result) {
-        StateModule.saveState();
-        render();
-    }
+  addBoardBtn.addEventListener('click', () => {
+    BoardManager.openBoardDialog();
   });
 
-  addColumnBtn.addEventListener('click', async () => {
-    await ColumnManager.openColumnDialog();
+  addColumnBtn.addEventListener('click', () => {
+    ColumnManager.openColumnDialog();
   });
 
-  // Обновляем функцию render
-  function render() {
-    BoardManager.renderBoardsList(boardsEl);
-    const calendarViewEl = document.getElementById('calendar-view');
-
-    if (StateModule.getState().isCalendarView) {
-      renderCalendar();
-      calendarViewEl?.classList.add('selected');
-      document.getElementById('board-view').style.display = 'none';
-      document.getElementById('calendar-view-content').style.display = 'block';
-      boardTitleEl.textContent = 'Календарь';
-    } else {
-      renderBoard();
-      calendarViewEl?.classList.remove('selected');
-      document.getElementById('board-view').style.display = 'block';
-      document.getElementById('calendar-view-content').style.display = 'none';
-    }
-  }
-
-  render();
+  RenderModule.render();
 
   // Добавляем в начало скрипта, после объявления переменных
   const themeToggle = document.getElementById('theme-toggle');
@@ -304,237 +194,6 @@ function initApp() {
 
       taskEl.appendChild(newResetInfo);
     }
-  }
-
-  function renderTask(task, container) {
-    const taskEl = document.createElement('div');
-    taskEl.className = 'task' + (task.done ? ' done' : '') + (task.parentId ? ' subtask' : '') + (task.isInfo ? ' info' : '');
-
-    // Добавляем класс для пульсации, если есть дедлайн и он скоро
-    if (!task.done && task.deadline) {
-      const deadline = new Date(task.deadline);
-      const now = new Date();
-      const diff = deadline - now;
-      const hourInMs = 60 * 60 * 1000;
-
-      if (diff < hourInMs || diff < 0) {
-        taskEl.classList.add('deadline-warning');
-      }
-    }
-
-    taskEl.draggable = true;
-    taskEl.dataset.taskId = task.id;
-
-    // Создаем header задачи
-    const taskHeader = document.createElement('div');
-    taskHeader.className = 'task-header';
-
-    // Добавляем кастомные цвета
-    const currentColor = task.done && task.doneColor ? task.doneColor : task.color;
-    if (currentColor) {
-      taskEl.style.borderLeftColor = currentColor;
-      taskEl.dataset.customColor = '';
-
-      // Добавляем осветленный фоновый цвет
-      const alpha = task.done ? '0.1' : '0.05';
-      const rgb = hexToRGB(currentColor);
-      taskEl.style.setProperty('--task-bg-color', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`);
-
-      if (task.done && task.doneColor) {
-        const doneRgb = hexToRGB(task.doneColor);
-        taskEl.style.setProperty('--task-done-bg-color', `rgba(${doneRgb.r}, ${doneRgb.g}, ${doneRgb.b}, 0.15)`);
-      }
-    }
-
-    // Добавляем чекбокс
-    if (!task.isInfo) {
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = task.done;
-      checkbox.onclick = (e) => e.stopPropagation();
-      checkbox.onchange = () => {
-        task.done = checkbox.checked;
-        if (checkbox.checked) {
-          task.doneDate = new Date().toISOString();
-        } else {
-          task.doneDate = null;
-        }
-        StateModule.saveState();
-        render();
-      };
-      taskHeader.appendChild(checkbox);
-    }
-
-    // Добавляем контент задачи
-    const taskContent = document.createElement('div');
-    taskContent.className = 'task-content';
-
-    // Заголовок
-    const title = document.createElement('div');
-    renderLinkedText(title, task.title, 'task-title');
-    taskContent.appendChild(title);
-
-    // Описание
-    if (task.description) {
-      const descEl = document.createElement('div');
-      renderLinkedText(descEl, task.description, 'task-description');
-      taskContent.appendChild(descEl);
-    }
-
-    taskHeader.appendChild(taskContent);
-    taskEl.appendChild(taskHeader);
-
-    // Добавляем иконку повторения и информацию о сбросе
-    if (task.repeating) {
-      const repeatIcon = document.createElement('div');
-      repeatIcon.className = 'task-repeat-icon';
-      repeatIcon.innerHTML = '🔄';
-      repeatIcon.title = 'Повторяющаяся задача';
-      taskEl.appendChild(repeatIcon);
-    }
-
-    container.appendChild(taskEl);
-
-    // Добавляем контейнер для сабтасков, если они есть
-    if (task.subtasks && task.subtasks.length > 0) {
-      const subtasksContainer = document.createElement('div');
-      subtasksContainer.className = 'subtasks-container';
-
-      // Рендерим каждый сабтаск внутри контейнера
-      task.subtasks.forEach(subtaskId => {
-        const subtask = findTaskById(subtaskId);
-        if (subtask) {
-          renderTask(subtask, subtasksContainer);
-        }
-      });
-
-      taskEl.appendChild(subtasksContainer);
-    }
-
-    // В функции renderTask, где добавляются индикаторы времени
-    const timeIndicators = document.createElement('div');
-    timeIndicators.className = 'task-time-indicators';
-
-    // Добавляем метку времени выполнения
-    if (task.done && task.doneDate) {
-      const doneTime = document.createElement('div');
-      doneTime.className = 'task-done-time';
-      doneTime.textContent = `✓ ${formatDateTime(task.doneDate)}`;
-      timeIndicators.appendChild(doneTime);
-    }
-
-    // Добавляем информацию о дедлайне
-    if (task.deadline) {
-      const deadlineInfo = document.createElement('div');
-      deadlineInfo.className = 'task-deadline-info';
-      const now = new Date();
-      const deadline = new Date(task.deadline);
-
-      if (!task.done) {
-        // Для невыполненных задач показываем оставшееся время
-        if (deadline <= now) {
-          deadlineInfo.classList.add('overdue');
-        }
-
-        const updateTime = () => {
-          deadlineInfo.textContent = `⌛️ ${formatDeadlineTime(deadline)}`;
-        };
-
-        updateTime();
-        const intervalId = setInterval(updateTime, 1000);
-        resetTimeIntervals.set(task.id, intervalId);
-      } else {
-        // Для выполненных задач показываем точное время дедлайна
-        deadlineInfo.textContent = `⌛️ ${formatDateTime(deadline)}`;
-      }
-
-      timeIndicators.appendChild(deadlineInfo);
-    }
-    // Добавляем информацию о сбросе для повторяющихся задач
-    else if (task.repeating && task.done) {
-      const resetInfo = document.createElement('div');
-      resetInfo.className = 'task-reset-info';
-
-      // Очищаем предыдущий интервал для этой задачи, если он был
-      if (resetTimeIntervals.has(task.id)) {
-        clearInterval(resetTimeIntervals.get(task.id));
-      }
-
-      const updateTime = () => {
-        resetInfo.textContent = formatTimeLeft(task.resetTime || '00:00');
-      };
-
-      updateTime();
-      const intervalId = setInterval(updateTime, 1000);
-      resetTimeIntervals.set(task.id, intervalId);
-
-      timeIndicators.appendChild(resetInfo);
-    }
-
-    // Добавляем контейнер с индикаторами только если есть хотя бы один индикатор
-    if (timeIndicators.children.length > 0) {
-      taskEl.appendChild(timeIndicators);
-    }
-
-
-    // Если есть сабтаски, добавляем кнопку сворачивания
-    if (task.subtasks && task.subtasks.length > 0) {
-      const expandToggle = document.createElement('div'); // меняем span на div
-      expandToggle.className = 'task-expand-toggle';
-      if (task.collapsed) {
-        expandToggle.classList.add('collapsed');
-      }
-
-      // Добавляем пустой элемент для первой колонки грида
-      const spacerLeft = document.createElement('div');
-      expandToggle.appendChild(spacerLeft);
-
-      // Добавляем контейнер для стрелки
-      const toggleArrow = document.createElement('span');
-      toggleArrow.className = 'toggle-arrow';
-      expandToggle.appendChild(toggleArrow);
-
-      // Добавляем статистику
-      const stats = getSubtasksStats(task);
-      if (stats.total > 0) {
-        const statsEl = document.createElement('div');
-        statsEl.className = 'subtasks-stats';
-        statsEl.innerHTML = `
-          <span class="stats-done">${stats.done}</span>
-          <span class="stats-separator">/</span>
-          <span class="stats-total">${stats.total}</span>
-        `;
-        expandToggle.appendChild(statsEl);
-      } else {
-        // Если нет статистики, добавляем пустой элемент для третьей колонки грида
-        const spacerRight = document.createElement('div');
-        expandToggle.appendChild(spacerRight);
-      }
-
-      expandToggle.onclick = (e) => {
-        e.stopPropagation();
-        const subtasksContainer = taskEl.querySelector('.subtasks-container');
-        if (subtasksContainer) {
-          const isExpanded = !expandToggle.classList.contains('collapsed');
-          expandToggle.classList.toggle('collapsed');
-          subtasksContainer.style.display = isExpanded ? 'none' : 'block';
-
-          // Сохраняем состояние
-          task.collapsed = isExpanded;
-          StateModule.saveState();
-        }
-      };
-      taskEl.appendChild(expandToggle);
-
-      // Устанавливаем начальное состояние контейнера сабтасков
-      const subtasksContainer = taskEl.querySelector('.subtasks-container');
-      if (subtasksContainer && task.collapsed) {
-        subtasksContainer.style.display = 'none';
-      }
-    }
-
-    // Добавляем обработчики через функцию
-    addTaskDragHandlers(taskEl);
   }
 
   // Добавляем после остальных обработчиков
@@ -655,151 +314,11 @@ function initApp() {
     }
   }
 
-  function makeSubtask(taskId, parentId) {
-    const board = BoardManager.getSelectedBoard();
-    if (!board) {
-      return;
-    }
-
-    const task = findTaskById(taskId);
-    const parentTask = findTaskById(parentId);
-    if (!task || !parentTask) {
-      return;
-    }
-
-    // Проверяем циклические зависимости
-    if (isTaskAncestor(taskId, parentId)) {
-      return;
-    }
-
-    // Находим колонку с родительской задачей
-    const parentColumn = board.columns.find(col =>
-        col.tasks.some(t => t.id === parentId)
-    );
-
-    if (!parentColumn) {
-      return;
-    }
-
-    // Удаляем задачу из текущего места
-    removeTaskFromCurrentPosition(task);
-
-    // Обновляем связи в оригинальной задаче
-    task.parentId = parentId;
-
-    // Инициализируем массив subtasks для родительской задачи, если его нет
-    if (!parentTask.subtasks) {
-      parentTask.subtasks = [];
-    }
-
-    // Добавляем ID задачи к родительской задаче
-    if (!parentTask.subtasks.includes(task.id)) {
-      parentTask.subtasks.push(task.id);
-    }
-
-    // Добавляем задачу в ту же колонку, где находится родительская задача
-    const taskIndex = parentColumn.tasks.findIndex(t => t.id === parentId);
-    if (taskIndex !== -1) {
-      // Вставляем задачу сразу после родительской задачи
-      parentColumn.tasks.splice(taskIndex + 1, 0, task);
-    } else {
-      // Если родительская задача не найдена, добавляем в конец
-      parentColumn.tasks.push(task);
-    }
-
-    // Находим нужную доску
-    const boardIndex = StateModule.getState().boards.findIndex(b => b.id === board.id);
-    if (boardIndex !== -1) {
-      // Обновляем состояние доски
-      StateModule.getState().boards[boardIndex] = board;
-    }
-
-    StateModule.saveState();
-    render();
-  }
-
   function isTaskAncestor(taskId, possibleAncestorId) {
     const task = findTaskById(taskId);
     if (!task || !task.parentId) return false;
     if (task.parentId === possibleAncestorId) return true;
     return isTaskAncestor(task.parentId, possibleAncestorId);
-  }
-
-  function removeTaskFromCurrentPosition(task) {
-    if (!task) {
-      return;
-    }
-
-    const board = BoardManager.getSelectedBoard();
-    if (!board) {
-      return;
-    }
-
-    // Если это сабтаск, удаляем из родителя
-    if (task.parentId) {
-      const parentTask = findTaskById(task.parentId);
-
-      if (parentTask && parentTask.subtasks) {
-        parentTask.subtasks = parentTask.subtasks.filter(id => id !== task.id);
-      }
-    }
-
-    // Удаляем из колонки
-    for (const column of board.columns) {
-      const index = column.tasks.findIndex(t => t.id === task.id);
-      if (index !== -1) {
-        column.tasks.splice(index, 1);
-        break;
-      }
-    }
-  }
-
-  // Добавляем глобальную переменную для отслеживания состояния
-  let isProcessingDrop = false;
-
-  function addTaskDragHandlers(taskEl) {
-    // Добавляем обработчики начала и конца перетаскивания
-    taskEl.addEventListener('dragstart', (e) => {
-      e.stopPropagation(); // Предотвращаем всплытие, чтобы не перетаскивалась колонка
-      taskEl.classList.add('dragging');
-    });
-
-    taskEl.addEventListener('dragend', (e) => {
-      e.stopPropagation();
-      taskEl.classList.remove('dragging');
-      DragDrop.removeAllDropIndicators();
-    });
-
-    // Обработчик dragover с логикой третей
-    taskEl.addEventListener('dragover', (e) => {
-      const draggingTask = document.querySelector('.task.dragging');
-      if (!draggingTask) return;
-      showTaskDropIndicator(e, taskEl, draggingTask);
-    });
-
-    taskEl.addEventListener('drop', (e) => {
-      handleTaskDrop(e, taskEl);
-    });
-
-    // Добавляем обработчик двойного клика для редактирования
-    taskEl.addEventListener('dblclick', async (e) => {
-      e.stopPropagation(); // Останавливаем всплытие события
-
-      const task = TaskManager.findTaskById(taskEl.dataset.taskId);
-      if (task) {
-        // Находим колонку, в которой находится задача (или её родитель, если это сабтаск)
-        const column = BoardManager.getSelectedBoard().columns.find(col => {
-          return col.tasks.some(t => {
-            if (t.id === task.id) return true; // Сама задача в колонке
-            return !!(task.parentId && t.id === task.parentId);
-          });
-        });
-
-        if (column) {
-          await TaskManager.openTaskDialog(column, task);
-        }
-      }
-    });
   }
 
   // Добавляем функцию для получения пути до задачи
@@ -819,207 +338,6 @@ function initApp() {
     }
 
     return path;
-  }
-
-  // Добавляем после остальных функций
-  function handleTaskDrop(e, container) {
-    if (isProcessingDrop) return;
-
-    const draggingTask = document.querySelector('.task.dragging');
-    if (!draggingTask) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-    isProcessingDrop = true;
-
-    try {
-      const draggedTaskId = draggingTask.dataset.taskId;
-      const board = BoardManager.getSelectedBoard();
-
-      // Определяем тип контейнера и цели
-      const isColumn = container.classList.contains('column');
-      const targetTask = container.classList.contains('task') ? container : null;
-
-      // Получаем колонку
-      const colEl = isColumn ? container : container.closest('.column');
-      const columnId = colEl.dataset.columnId;
-      const column = board.columns.find(col => col.id === columnId);
-
-      // Проверяем наличие индикаторов
-      const subtaskIndicator = targetTask?.querySelector('.subtask-drop-indicator');
-      const taskIndicator = colEl.querySelector('.task-drop-indicator');
-      const parentTaskEl = taskIndicator?.closest('.task');
-
-      if (subtaskIndicator && targetTask) {
-        // Случай 1: Создание сабтаска
-        makeSubtask(draggedTaskId, targetTask.dataset.taskId);
-      } else if (taskIndicator && parentTaskEl) {
-        // Случай 2: Перемещение внутри списка сабтасков
-        const draggedTask = findTaskById(draggedTaskId);
-        const parentTask = findTaskById(parentTaskEl.dataset.taskId);
-        const tasks = parentTask.subtasks;
-
-        // Определяем позицию вставки
-        const prevTask = taskIndicator.previousElementSibling;
-        const nextTask = taskIndicator.nextElementSibling;
-        const currentIndex = tasks.findIndex(task => task === draggedTaskId);
-        const prevIndex = prevTask?.dataset ? tasks.findIndex(task => task === prevTask.dataset.taskId) : -1;
-        const nextIndex = nextTask?.dataset ? tasks.findIndex(task => task === nextTask.dataset.taskId) : -1;
-
-        if ((nextIndex === currentIndex || prevIndex === currentIndex) && currentIndex !== -1) return;
-
-        let finalIndex = nextTask ? nextIndex : tasks.length;
-        if (currentIndex !== -1) {
-          finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
-        }
-
-        // Обновляем позицию
-        removeTaskFromCurrentPosition(draggedTask);
-        column.tasks.push(draggedTask);
-        draggedTask.parentId = parentTask.id;
-        parentTask.subtasks.splice(finalIndex, 0, draggedTaskId);
-
-        StateModule.saveState();
-        render();
-      } else if (taskIndicator) {
-        // Случай 3: Обычное перемещение в колонку
-        const tasks = column.tasks;
-
-        // Если есть индикатор, находим его позицию среди задач
-        const nextTask = taskIndicator.nextElementSibling;
-        const prevTask = taskIndicator.previousElementSibling;
-        let prevIndex = prevTask && prevTask.dataset ? tasks.findIndex(task => task.id === prevTask.dataset.taskId) : -1;
-        let nextIndex = nextTask && nextTask.dataset ? tasks.findIndex(task => task.id === nextTask.dataset.taskId) : -1;
-        let currentIndex = tasks.findIndex(task => task.id === draggingTask.dataset.taskId);
-
-        // Если индикатор находится рядом с текущим таском, то не перемещаем
-        if ((nextIndex === currentIndex || prevIndex === currentIndex) && currentIndex !== -1) return;
-
-        // учесть, если перетаскиваемый таск уже в этой колонке
-        let finalIndex = nextTask ? nextIndex : tasks.length;
-        if (currentIndex !== -1) {
-          finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
-        }
-
-        moveTaskToColumn(draggedTaskId, columnId, finalIndex);
-      }
-    } finally {
-      isProcessingDrop = false;
-      DragDrop.removeAllDropIndicators();
-    }
-  }
-
-  function showTaskDropIndicator(e, parentEl, draggingTask) {
-    if (parentEl === draggingTask) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Удаляем существующие индикаторы
-    DragDrop.removeAllDropIndicators();
-
-    const indicator = document.createElement('div');
-    indicator.className = 'task-drop-indicator';
-
-    // Если parentEl - таск
-    if (parentEl.classList.contains('task')) {
-      const taskEl = parentEl;
-
-      const taskRect = taskEl.getBoundingClientRect();
-      const partHeight = taskRect.height / 4;
-      const mouseY = e.clientY - taskRect.top;
-
-      const subtasksContainer = taskEl.querySelector('.subtasks-container');
-      // Проверяем, если есть контейнер сабтасков - находимся ли мы над ним
-      let aboveSubtasksContainer = false;
-      if (subtasksContainer) {
-        const subtasksContainerRect = subtasksContainer.getBoundingClientRect();
-        if (e.clientY > subtasksContainerRect.top && e.clientY < subtasksContainerRect.bottom) {
-          aboveSubtasksContainer = true;
-        }
-      }
-      if (subtasksContainer && aboveSubtasksContainer) {
-        // Вычисляем позицию вставки
-        const indicator = document.createElement('div');
-        indicator.className = 'task-drop-indicator';
-        // Вставляем индикатор в позицию под курсором
-        // Находим ближайшую задачу к курсору
-        let closestTask = null;
-        let minDistance = Infinity;
-
-        subtasksContainer.childNodes.forEach(node => {
-          if (node.nodeType === 1) { // Проверяем, что это элемент
-            const rect = node.getBoundingClientRect();
-            const distance = Math.abs(e.clientY - rect.top);
-            if (distance < minDistance) {
-              closestTask = node;
-              minDistance = distance;
-            }
-          }
-        });
-
-        if (closestTask) {
-          subtasksContainer.insertBefore(indicator, closestTask);
-        } else {
-          subtasksContainer.appendChild(indicator);
-        }
-      } else if (mouseY > partHeight && mouseY < (partHeight * 3)) { // Проверяем, находится ли курсор в центральной части
-        // Если у задачи еще нет сабтасков, показываем индикатор создания сабтаска
-        const indicator = document.createElement('div');
-        indicator.className = 'subtask-drop-indicator';
-        taskEl.appendChild(indicator);
-      } else {
-        // Обрабатываем обычное перемещение
-        // Создаем индикатор перемещения
-        const indicator = document.createElement('div');
-        indicator.className = 'task-drop-indicator';
-
-        // Определяем, куда вставлять индикатор
-        if (mouseY < partHeight) {
-          taskEl.parentNode.insertBefore(indicator, taskEl);
-        } else {
-          taskEl.parentNode.insertBefore(indicator, taskEl.nextSibling);
-        }
-      }
-    } else if (parentEl.classList.contains('column')) {
-      const colEl = parentEl;
-      // Получаем все задачи верхнего уровня в колонке
-      const tasks = Array.from(colEl.querySelectorAll('.task:not(.subtask)'));
-      const addTaskBtn = colEl.querySelector('.add-btn');
-
-      // Если нет задач, просто добавляем индикатор перед кнопкой
-      if (tasks.length === 0) {
-        // Если задач нет, добавляем индикатор перед кнопкой добавления
-        colEl.insertBefore(indicator, addTaskBtn);
-        return;
-      }
-
-      // Находим ближайшую задачу к курсору
-      const mouseY = e.clientY;
-      let closestTask = null;
-      let minDistance = Infinity;
-
-      tasks.forEach(task => {
-        const rect = task.getBoundingClientRect();
-        const taskMiddle = rect.top + rect.height / 2;
-        const distance = Math.abs(mouseY - taskMiddle);
-
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestTask = task;
-        }
-      });
-
-      if (closestTask) {
-        const rect = closestTask.getBoundingClientRect();
-        if (mouseY < rect.top + rect.height / 2) {
-          colEl.insertBefore(indicator, closestTask);
-        } else {
-          colEl.insertBefore(indicator, closestTask.nextSibling);
-        }
-      } else {
-        colEl.insertBefore(indicator, addTaskBtn);
-      }
-    }
   }
 
   // Добавляем после остальных обработчиков
@@ -1068,7 +386,7 @@ function initApp() {
         if (confirmed) {
           StateModule.setState(importedData);
           StateModule.saveState();
-          render();
+          RenderModule.render();
         }
       } catch (err) {
         alert('Ошибка при импорте файла: ' + err.message);
@@ -1276,7 +594,7 @@ function initApp() {
                 task.doneDate = null;
               }
               StateModule.saveState();
-              render();
+              RenderModule.render();
             };
             taskHeader.appendChild(checkbox);
           }
@@ -1394,7 +712,7 @@ function initApp() {
     return tasks;
   }
 
-  async function openTaskFromCalendar(task) {
+  function openTaskFromCalendar(task) {
     // Переключаемся на нужную доску
     StateModule.setState({...StateModule.getState(), selectedBoardId: task.boardId});
 
@@ -1405,7 +723,7 @@ function initApp() {
     if (column) {
       // Переключаемся на вид досок и открываем диалог задачи
       showBoardView();
-      await TaskManager.openTaskDialog(column, task);
+      TaskManager.openTaskDialog(column, task);
     }
   }
 
@@ -1414,7 +732,7 @@ function initApp() {
   calendarViewEl?.addEventListener('click', () => {
     StateModule.setState({...StateModule.getState(), isCalendarView: true, selectedBoardId: null});
     StateModule.saveState();
-    render();
+    RenderModule.render();
   });
 
   document.getElementById('prev-month').addEventListener('click', () => {
@@ -1430,7 +748,7 @@ function initApp() {
   function showBoardView() {
     StateModule.setState({...StateModule.getState(), isCalendarView: false});
     StateModule.saveState();
-    render();
+    RenderModule.render();
   }
 
   // Обновляем обработчики для досок
@@ -1442,7 +760,7 @@ function initApp() {
 
     if (BoardManager.setSelectedBoard(li.dataset.boardId)) {
         StateModule.saveState();
-        render();
+        RenderModule.render();
     }
 
     if (window.innerWidth <= 768) {
