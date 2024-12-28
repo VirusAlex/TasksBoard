@@ -1693,3 +1693,24 @@ box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.3);
     gap: 2px;
 }
 }
+
+/* Стили для диалога настроек хранилища */
+.settings-group {
+    margin-bottom: 1.5rem;
+}
+
+.settings-group label {
+    display: block;
+    margin: 1rem 0 0.5rem;
+    font-weight: 500;
+}
+
+.settings-group .description {
+    margin: 0.25rem 0 1rem 1.5rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.dark-theme .settings-group .description {
+    color: #999;
+}

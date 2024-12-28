@@ -1,3 +1,5 @@
+import { getCurrentProvider } from '../data/dataProvider.js';
+
 // Состояние приложения
 let appState = {
     boards: [],
@@ -14,26 +16,37 @@ export function setState(newState) {
     appState = newState;
 }
 
-export function saveState() {
-    localStorage.setItem('taskBoardsData', JSON.stringify(appState));
+export async function saveState() {
+    try {
+        await getCurrentProvider().saveData(appState);
+    } catch (error) {
+        console.error('Failed to save state:', error);
+        throw error;
+    }
 }
 
-export function loadState() {
-    const savedState = JSON.parse(localStorage.getItem('taskBoardsData') || 'null' || {
-        boards: [],
-        selectedBoardId: null,
-        isCalendarView: false
-    });
-    
-    if (savedState) {
-        appState = savedState;
+export async function loadState() {
+    try {
+        const savedState = await getCurrentProvider().getData();
+        if (savedState) {
+            appState = savedState;
+        }
+        return appState;
+    } catch (error) {
+        console.error('Failed to load state:', error);
+        // Fallback to default state
+        appState = {
+            boards: [],
+            selectedBoardId: null,
+            isCalendarView: false
+        };
+        return appState;
     }
-    return appState;
 }
 
 // Функция инициализации модуля
-export function initStateModule() {
-    loadState();
+export async function initStateModule() {
+    await loadState();
     if (appState.boards.length === 0) {
         // Создаем доску по умолчанию, если нет сохраненных досок
         appState.boards.push({
@@ -42,6 +55,6 @@ export function initStateModule() {
             columns: []
         });
         appState.selectedBoardId = 'default-board';
-        saveState();
+        await saveState();
     }
 } 
