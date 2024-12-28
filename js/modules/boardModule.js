@@ -6,12 +6,13 @@ import * as RenderModule from './renderModule.js';
 import * as DragDrop from './dragAndDrop.js';
 import * as ColumnModule from './columnModule.js';
 
-const boardsEl = document.getElementById('boards');
-const addBoardBtn = document.getElementById('add-board-btn');
 const boardTitleEl = document.getElementById('board-title');
 const columnsEl = document.getElementById('columns');
-const addColumnBtn = document.getElementById('add-column-btn');
-const mainEl = document.getElementById('main');
+
+// Сохраняем ссылки на обработчики событий
+let currentBoardTitleHandler = null;
+let currentColumnsDragOverHandler = null;
+let currentColumnsDropHandler = null;
 
 export function renderBoard() {
     const board = getSelectedBoard();
@@ -21,17 +22,45 @@ export function renderBoard() {
         return;
     }
 
+    // Очищаем старые обработчики
+    if (currentBoardTitleHandler) {
+        boardTitleEl.removeEventListener('dblclick', currentBoardTitleHandler);
+    }
+    if (currentColumnsDragOverHandler) {
+        columnsEl.removeEventListener('dragover', currentColumnsDragOverHandler);
+    }
+    if (currentColumnsDropHandler) {
+        columnsEl.removeEventListener('drop', currentColumnsDropHandler);
+    }
+
     // Делаем заголовок доски редактируемым
     boardTitleEl.textContent = board.name;
     boardTitleEl.style.cursor = 'pointer';
     boardTitleEl.title = 'Дважды щелкните для редактирования';
 
-    // Добавляем обработчик двойного клика для редактирования
-    boardTitleEl.addEventListener('dblclick', async () => {
-        openBoardDialog(board);
-    });
+    // Создаем новый обработчик для заголовка доски
+    currentBoardTitleHandler = async () => {
+        await openBoardDialog(board);
+    };
+    boardTitleEl.addEventListener('dblclick', currentBoardTitleHandler);
 
     columnsEl.innerHTML = '';
+
+    // Создаем новые обработчики для drag & drop
+    currentColumnsDragOverHandler = (e) => {
+        const draggingCol = document.querySelector('.column.dragging');
+        if (!draggingCol) return;
+        e.preventDefault();
+        e.stopPropagation();
+        DragDrop.showColumnDropIndicator(e, draggingCol);
+    };
+
+    currentColumnsDropHandler = (e) => {
+        DragDrop.handleColumnDrop(e);
+    };
+
+    columnsEl.addEventListener('dragover', currentColumnsDragOverHandler);
+    columnsEl.addEventListener('drop', currentColumnsDropHandler);
 
     board.columns.forEach(column => {
         const columnElement = ColumnModule.renderColumn(column);
@@ -143,6 +172,7 @@ export function openBoardDialog(existingBoard = null) {
     const nameInput = document.getElementById('board-name');
     const submitButton = form.querySelector('button[type="submit"]');
     const titleEl = dialog.querySelector('h3');
+    const deleteBtn = form.querySelector('.delete-btn');
 
     // Настраиваем диалог
     titleEl.textContent = existingBoard ? 'Редактировать доску' : 'Новая доска';
@@ -155,49 +185,54 @@ export function openBoardDialog(existingBoard = null) {
         form.reset();
     }
 
-    // Настраиваем кнопку удаления
-    const deleteBtn = form.querySelector('.delete-btn');
-    if (existingBoard) {
-        deleteBtn.style.display = 'block';
-        deleteBtn.onclick = async () => {
-            const confirmed = await showConfirmDialog(
-                `Вы уверены, что хотите удалить доску "${existingBoard.name}" со всеми колонками и задачами?`
-            );
-            if (confirmed) {
-                deleteBoard(existingBoard.id);
-                dialog.close();
-                return true;
-            }
-            return false;
-        };
-    } else {
-        deleteBtn.style.display = 'none';
-    }
+    // Создаем обработчики
+    const handleDelete = async () => {
+        const confirmed = await showConfirmDialog(
+            `Вы уверены, что хотите удалить доску "${existingBoard.name}" со всеми колонками и задачами?`
+        );
+        if (confirmed) {
+            deleteBoard(existingBoard.id);
+            dialog.close('deleted');
+            return true;
+        }
+        return false;
+    };
 
-    form.onsubmit = (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
         const name = nameInput.value.trim();
         if (!name) return;
 
-        let result;
         if (existingBoard) {
-            // Обновляем существующую доску
-            result = updateBoard(existingBoard.id, { name });
+            updateBoard(existingBoard.id, { name });
         } else {
-            // Создаем новую доску
-            result = createBoard({ name });
+            createBoard({ name });
         }
 
-        dialog.close();
-        
+        dialog.close('submit');
+    };
+
+    const handleClose = () => {
+        // Удаляем все обработчики
+        form.removeEventListener('submit', handleSubmit);
+        if (existingBoard) {
+            deleteBtn.removeEventListener('click', handleDelete);
+        }
+        dialog.removeEventListener('close', handleClose);
+
         StateModule.saveState();
         RenderModule.render();
     };
 
-    dialog.addEventListener('close', () => {
-        StateModule.saveState();
-        RenderModule.render();
-    }, { once: true });
+    // Добавляем обработчики
+    form.addEventListener('submit', handleSubmit);
+    if (existingBoard) {
+        deleteBtn.style.display = 'block';
+        deleteBtn.addEventListener('click', handleDelete);
+    } else {
+        deleteBtn.style.display = 'none';
+    }
 
+    dialog.addEventListener('close', handleClose, { once: true });
     dialog.showModal();
 }

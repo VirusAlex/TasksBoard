@@ -5,6 +5,42 @@ import * as StateModule from './stateModule.js';
 import * as RenderModule from './renderModule.js';
 import * as DragDrop from './dragAndDrop.js';
 
+// Сохраняем ссылки на обработчики событий для каждой задачи
+const taskHandlers = new Map();
+
+// Функция для очистки обработчиков задачи
+function cleanupTaskHandlers(taskId) {
+    const handlers = taskHandlers.get(taskId);
+    if (handlers) {
+        const { taskEl } = handlers.elements;
+        const { 
+            dblClickHandler, 
+            dragStartHandler, 
+            dragEndHandler,
+            dragOverHandler,
+            dropHandler,
+            checkboxChangeHandler
+        } = handlers;
+
+        // Удаляем обработчики
+        if (taskEl) {
+            taskEl.removeEventListener('dblclick', dblClickHandler);
+            taskEl.removeEventListener('dragstart', dragStartHandler);
+            taskEl.removeEventListener('dragend', dragEndHandler);
+            taskEl.removeEventListener('dragover', dragOverHandler);
+            taskEl.removeEventListener('drop', dropHandler);
+
+            const checkbox = taskEl.querySelector('input[type="checkbox"]');
+            if (checkbox) {
+                checkbox.removeEventListener('change', checkboxChangeHandler);
+            }
+        }
+
+        // Удаляем запись об обработчиках
+        taskHandlers.delete(taskId);
+    }
+}
+
 // Базовые операции с задачами
 export function createTask(columnId, taskData) {
     const board = BoardModule.getSelectedBoard();
@@ -183,49 +219,95 @@ export function removeTaskFromCurrentPosition(task) {
 
 // Функция для добавления обработчиков drag & drop
 export function addTaskDragHandlers(taskEl) {
-    // Добавляем обработчики начала и конца перетаскивания
-    taskEl.addEventListener('dragstart', (e) => {
-      e.stopPropagation(); // Предотвращаем всплытие, чтобы не перетаскивалась колонка
-      taskEl.classList.add('dragging');
-    });
+    const taskId = taskEl.dataset.taskId;
+    
+    // Очищаем старые обработчики для этой задачи
+    cleanupTaskHandlers(taskId);
 
-    taskEl.addEventListener('dragend', (e) => {
-      e.stopPropagation();
-      taskEl.classList.remove('dragging');
-      DragDrop.removeAllDropIndicators();
-    });
+    // Создаем обработчики
+    const dragStartHandler = (e) => {
+        e.stopPropagation();
+        taskEl.classList.add('dragging');
+    };
 
-    // Обработчик dragover с логикой третей
-    taskEl.addEventListener('dragover', (e) => {
-      const draggingTask = document.querySelector('.task.dragging');
-      if (!draggingTask) return;
-      DragDrop.showTaskDropIndicator(e, taskEl, draggingTask);
-    });
+    const dragEndHandler = (e) => {
+        e.stopPropagation();
+        taskEl.classList.remove('dragging');
+        DragDrop.removeAllDropIndicators();
+    };
 
-    taskEl.addEventListener('drop', (e) => {
-      DragDrop.handleTaskDrop(e, taskEl);
-    });
+    const dragOverHandler = (e) => {
+        const draggingTask = document.querySelector('.task.dragging');
+        if (!draggingTask) return;
+        DragDrop.showTaskDropIndicator(e, taskEl, draggingTask);
+    };
 
-    // Добавляем обработчик двойного клика для редактирования
-    taskEl.addEventListener('dblclick', async (e) => {
-      e.stopPropagation(); // Останавливаем всплытие события
+    const dropHandler = (e) => {
+        DragDrop.handleTaskDrop(e, taskEl);
+    };
 
-      const task = TaskManager.findTaskById(taskEl.dataset.taskId);
-      if (task) {
-        // Находим колонку, в которой находится задача (или её родитель, если это сабтаск)
-        const column = BoardManager.getSelectedBoard().columns.find(col => {
-          return col.tasks.some(t => {
-            if (t.id === task.id) return true; // Сама задача в колонке
-            return !!(task.parentId && t.id === task.parentId);
-          });
-        });
+    const dblClickHandler = async (e) => {
+        e.stopPropagation();
 
-        if (column) {
-          openTaskDialog(column, task);
+        const task = findTaskById(taskEl.dataset.taskId);
+        if (task) {
+            // Находим колонку, в которой находится задача (или её родитель, если это сабтаск)
+            const column = BoardModule.getSelectedBoard().columns.find(col => {
+                return col.tasks.some(t => {
+                    if (t.id === task.id) return true; // Сама задача в колонке
+                    return !!(task.parentId && t.id === task.parentId);
+                });
+            });
+
+            if (column) {
+                openTaskDialog(column, task);
+            }
         }
-      }
+    };
+
+    // Добавляем обработчики
+    taskEl.addEventListener('dragstart', dragStartHandler);
+    taskEl.addEventListener('dragend', dragEndHandler);
+    taskEl.addEventListener('dragover', dragOverHandler);
+    taskEl.addEventListener('drop', dropHandler);
+    taskEl.addEventListener('dblclick', dblClickHandler);
+
+    // Сохраняем ссылки на обработчики
+    taskHandlers.set(taskId, {
+        elements: { taskEl },
+        dragStartHandler,
+        dragEndHandler,
+        dragOverHandler,
+        dropHandler,
+        dblClickHandler
     });
-  }
+
+    // Добавляем обработчик для чекбокса, если он есть
+    const checkbox = taskEl.querySelector('input[type="checkbox"]');
+    if (checkbox) {
+        const checkboxChangeHandler = () => {
+            const task = findTaskById(taskId);
+            if (task) {
+                task.done = checkbox.checked;
+                if (checkbox.checked) {
+                    task.doneDate = new Date().toISOString();
+                } else {
+                    task.doneDate = null;
+                }
+                StateModule.saveState();
+                RenderModule.render();
+            }
+        };
+
+        checkbox.addEventListener('change', checkboxChangeHandler);
+        
+        // Добавляем обработчик в сохраненные
+        const handlers = taskHandlers.get(taskId);
+        if (handlers) {
+            handlers.checkboxChangeHandler = checkboxChangeHandler;
+        }
+    }
+}
 
 // Функция рендеринга задачи
 export function renderTask(task, container) {
@@ -378,6 +460,62 @@ export function renderTask(task, container) {
         taskEl.appendChild(timeIndicators);
     }
 
+    // Если есть сабтаски, добавляем кнопку сворачивания
+    if (task.subtasks && task.subtasks.length > 0) {
+        const expandToggle = document.createElement('div'); // меняем span на div
+        expandToggle.className = 'task-expand-toggle';
+        if (task.collapsed) {
+            expandToggle.classList.add('collapsed');
+        }
+
+        // Добавляем пустой элемент для первой колонки грида
+        const spacerLeft = document.createElement('div');
+        expandToggle.appendChild(spacerLeft);
+
+        // Добавляем контейнер для стрелки
+        const toggleArrow = document.createElement('span');
+        toggleArrow.className = 'toggle-arrow';
+        expandToggle.appendChild(toggleArrow);
+
+        // Добавляем статистику
+        const stats = getSubtasksStats(task);
+        if (stats.total > 0) {
+            const statsEl = document.createElement('div');
+            statsEl.className = 'subtasks-stats';
+            statsEl.innerHTML = `
+            <span class="stats-done">${stats.done}</span>
+            <span class="stats-separator">/</span>
+            <span class="stats-total">${stats.total}</span>
+            `;
+            expandToggle.appendChild(statsEl);
+        } else {
+            // Если нет статистики, добавляем пустой элемент для третьей колонки грида
+            const spacerRight = document.createElement('div');
+            expandToggle.appendChild(spacerRight);
+        }
+
+        expandToggle.onclick = (e) => {
+            e.stopPropagation();
+            const subtasksContainer = taskEl.querySelector('.subtasks-container');
+            if (subtasksContainer) {
+            const isExpanded = !expandToggle.classList.contains('collapsed');
+            expandToggle.classList.toggle('collapsed');
+            subtasksContainer.style.display = isExpanded ? 'none' : 'block';
+
+            // Сохраняем состояние
+            task.collapsed = isExpanded;
+            StateModule.saveState();
+            }
+        };
+        taskEl.appendChild(expandToggle);
+
+        // Устанавливаем начальное состояние контейнера сабтасков
+        const subtasksContainer = taskEl.querySelector('.subtasks-container');
+        if (subtasksContainer && task.collapsed) {
+            subtasksContainer.style.display = 'none';
+        }
+    }
+
     // Добавляем обработчики событий
     addTaskDragHandlers(taskEl);
 
@@ -385,13 +523,13 @@ export function renderTask(task, container) {
 }
 
 // Добавляем константы для цветов по умолчанию
-const defaultTaskColors = {
+export const defaultTaskColors = {
     pending: '#f1c40f',
     info: '#3498db',
     done: '#2ecc71'
 };
 
-const darkThemeTaskColors = {
+export const darkThemeTaskColors = {
     pending: '#f39c12',
     info: '#2980b9',
     done: '#27ae60'
@@ -449,6 +587,7 @@ export function openTaskDialog(column, existingTask = null) {
         const linkForm = linkDialog.querySelector('form');
         const urlInput = document.getElementById('link-url');
         const textInput = document.getElementById('link-text');
+        const cancelBtn = linkDialog.querySelector('button[type="button"]');
 
         // Clear form
         linkForm.reset();
@@ -462,19 +601,39 @@ export function openTaskDialog(column, existingTask = null) {
             textInput.value = selectedText;
         }
 
+        // Создаем одноразовые обработчики
+        const handleSubmit = (e) => {
+            e.preventDefault();
+            linkDialog.returnValue = 'submit';
+            linkDialog.close();
+        };
+
+        const handleCancel = () => {
+            linkDialog.returnValue = 'cancel';
+            linkDialog.close();
+        };
+
+        const handleClose = () => {
+            // Удаляем обработчики
+            linkForm.removeEventListener('submit', handleSubmit);
+            cancelBtn.removeEventListener('click', handleCancel);
+            linkDialog.removeEventListener('close', handleClose);
+        };
+
+        // Добавляем обработчики
+        linkForm.addEventListener('submit', handleSubmit);
+        cancelBtn.addEventListener('click', handleCancel);
+        linkDialog.addEventListener('close', handleClose);
+
         linkDialog.showModal();
 
         // Wait for dialog close
-        const closePromise = new Promise(resolve => {
-            linkDialog.addEventListener('close', () => resolve(linkDialog.returnValue), { once: true });
+        const result = await new Promise(resolve => {
+            linkDialog.addEventListener('close', () => {
+                resolve(linkDialog.returnValue === 'submit' ? 'submit' : 'cancel');
+            }, { once: true });
         });
 
-        linkForm.onsubmit = (e) => {
-            e.preventDefault();
-            linkDialog.close('submit');
-        };
-
-        const result = await closePromise;
         if (result === 'submit') {
             const url = urlInput.value;
             const text = textInput.value || url;
@@ -753,4 +912,124 @@ export function openTaskDialog(column, existingTask = null) {
         updateLineNumbers();
     });
     resizeObserver.observe(descriptionInput);
+}
+
+
+// Добавляем функцию для подсчета статистики сабтасков
+function getSubtasksStats(task) {
+    let done = 0;
+    let total = 0;
+
+    function countSubtasks(subtaskIds) {
+        subtaskIds.forEach(subtaskId => {
+            const subtask = findTaskById(subtaskId);
+            if (subtask) {
+                if (!subtask.isInfo) {
+                    total++;
+                    if (subtask.done) done++;
+                }
+                if (subtask.subtasks && subtask.subtasks.length > 0) {
+                    countSubtasks(subtask.subtasks);
+                }
+            }
+        });
+    }
+
+    if (task.subtasks) {
+        countSubtasks(task.subtasks);
+    }
+
+    return { done, total };
+}
+
+
+  // Обновляем функцию проверки сброса задач
+export function checkTasksReset() {
+    const now = new Date();
+    let needsSave = false;
+
+    StateModule.getState().boards.forEach(board => {
+      board.columns.forEach(col => {
+        col.tasks.forEach(task => {
+          if (task.repeating && task.done && task.doneDate) {
+            let shouldReset = false;
+
+            if (task.resetTime) {
+              // Берем дату выполнения и добавляем к ней время сброса
+              const doneDate = new Date(task.doneDate);
+              const [hours, minutes] = task.resetTime.split(':');
+              const resetTime = new Date(doneDate);
+              resetTime.setHours(hours, minutes, 0, 0);
+
+              // Если время сброса меньше времени выполнения - переносим на следующий день
+              if (resetTime <= doneDate) {
+                resetTime.setDate(resetTime.getDate() + 1);
+              }
+
+              shouldReset = now >= resetTime;
+            } else {
+              // Если время не задано, сброс в начале следующего дня
+              const doneDate = new Date(task.doneDate);
+              const nextDay = new Date(doneDate);
+              nextDay.setDate(nextDay.getDate() + 1);
+              nextDay.setHours(0, 0, 0, 0);
+              shouldReset = now >= nextDay;
+            }
+
+            if (shouldReset) {
+              task.done = false;
+              task.doneDate = null;
+              needsSave = true;
+              rerenderTask(task.id);
+            }
+          }
+        });
+      });
+    });
+
+    if (needsSave) {
+      StateModule.saveState();
+    }
+}
+
+// Функция для перерисовки конкретной задачи
+function rerenderTask(taskId) {
+    const taskEl = document.querySelector(`div[data-task-id="${taskId}"]`);
+    if (!taskEl) return;
+
+    // Находим задачу в данных
+    let task = null;
+    const board = BoardModule.getSelectedBoard();
+    if (!board) return;
+
+    board.columns.forEach(col => {
+      const foundTask = col.tasks.find(t => t.id === taskId);
+      if (foundTask) task = foundTask;
+    });
+
+    if (!task) return;
+
+    // Обновляем состояние карточки
+    taskEl.className = 'task' + (task.done ? ' done' : '');
+
+    // Обновляем чекбокс
+    const checkbox = taskEl.querySelector('input[type="checkbox"]');
+    if (checkbox) checkbox.checked = task.done;
+
+    // Обновляем информацию о времени сброса
+    const resetInfo = taskEl.querySelector('.task-reset-info');
+    if (resetInfo) resetInfo.remove();
+
+    if (task.repeating && task.done) {
+      const newResetInfo = document.createElement('div');
+      newResetInfo.className = 'task-reset-info';
+
+      if (task.resetTime) {
+        newResetInfo.textContent = formatTimeLeft(task.resetTime);
+      } else {
+        newResetInfo.textContent = formatTimeLeft('00:00');
+      }
+
+      taskEl.appendChild(newResetInfo);
+    }
 }

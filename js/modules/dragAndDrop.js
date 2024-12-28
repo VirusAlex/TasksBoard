@@ -298,7 +298,9 @@ export function handleColumnDrop(event) {
         if (finalIndex !== -1) {
             const [movedColumn] = board.columns.splice(currentIndex, 1);
             board.columns.splice(finalIndex, 0, movedColumn);
-            return true;
+            
+            StateModule.saveState();
+            RenderModule.render();
         }
     } finally {
         removeAllDropIndicators();

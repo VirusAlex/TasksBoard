@@ -1,11 +1,14 @@
 // Модуль для работы с колонками
 import { generateId } from '../utils.js';
 import { showConfirmDialog } from './uiComponents.js';
-import { getSelectedBoard } from './boardModule.js';
+import * as BoardManager from './boardModule.js';
 import * as TaskManager from './taskModule.js';
-import { showColumnDropIndicator, handleColumnDrop, removeAllDropIndicators } from './dragAndDrop.js';
+import * as DragDrop from './dragAndDrop.js';
 import * as StateModule from './stateModule.js';
 import * as RenderModule from './renderModule.js';
+
+// Сохраняем ссылки на обработчики событий для каждой колонки
+const columnHandlers = new Map();
 
 // Базовые операции с колонками
 export function createColumn(boardId, columnData) {
@@ -18,7 +21,7 @@ export function createColumn(boardId, columnData) {
 }
 
 export function updateColumn(columnId, columnData) {
-    const board = getSelectedBoard();
+    const board = BoardManager.getSelectedBoard();
     if (!board) return null;
 
     const column = board.columns.find(c => c.id === columnId);
@@ -29,7 +32,7 @@ export function updateColumn(columnId, columnData) {
 }
 
 export function deleteColumn(columnId) {
-    const board = getSelectedBoard();
+    const board = BoardManager.getSelectedBoard();
     if (!board) return false;
 
     const columnIndex = board.columns.findIndex(c => c.id === columnId);
@@ -59,74 +62,34 @@ export function getColumnStats(column) {
     return stats;
 }
 
-// Функции для работы с диалогом колонки
-export function openColumnDialog(existingColumn = null) {
-    const dialog = document.getElementById('column-dialog');
-    const form = dialog.querySelector('form');
-    const nameInput = document.getElementById('column-name');
-    const submitButton = form.querySelector('button[type="submit"]');
-    const titleEl = dialog.querySelector('h3');
-    const board = getSelectedBoard();
+// Функция для очистки обработчиков колонки
+function cleanupColumnHandlers(columnId) {
+    const handlers = columnHandlers.get(columnId);
+    if (handlers) {
+        const { headerEl, columnEl } = handlers.elements;
+        const { dblClickHandler, dragStartHandler, dragEndHandler, dragOverHandler, dropHandler } = handlers;
 
-    if (!board) return;
-
-    // Настраиваем диалог
-    titleEl.textContent = existingColumn ? 'Редактировать колонку' : 'Новая колонка';
-    submitButton.textContent = existingColumn ? 'Сохранить' : 'Создать';
-
-    // Заполняем форму данными существующей колонки или очищаем
-    if (existingColumn) {
-        nameInput.value = existingColumn.name;
-    } else {
-        form.reset();
-    }
-
-    // Настраиваем кнопку удаления
-    const deleteBtn = form.querySelector('.delete-btn');
-    if (existingColumn) {
-        deleteBtn.style.display = 'block';
-        deleteBtn.onclick = async () => {
-            const confirmed = await showConfirmDialog(
-                `Вы уверены, что хотите удалить колонку "${existingColumn.name}" со всеми задачами?`
-            );
-            if (confirmed) {
-                if (deleteColumn(existingColumn.id)) {
-                    dialog.close('deleted');
-                    return true;
-                }
-            }
-            return false;
-        };
-    } else {
-        deleteBtn.style.display = 'none';
-    }
-
-    dialog.showModal();
-
-    form.onsubmit = (e) => {
-        e.preventDefault();
-        const name = nameInput.value.trim();
-        if (!name) return;
-
-        if (existingColumn) {
-            // Обновляем существующую колонку
-            updateColumn(existingColumn.id, { name });
-        } else {
-            // Создаем новую колонку
-            const newColumn = createColumn(board.id, { name });
-            board.columns.push(newColumn);
+        // Удаляем обработчики
+        if (headerEl) {
+            headerEl.removeEventListener('dblclick', dblClickHandler);
         }
-        dialog.close();
-    };
+        if (columnEl) {
+            columnEl.removeEventListener('dragstart', dragStartHandler);
+            columnEl.removeEventListener('dragend', dragEndHandler);
+            columnEl.removeEventListener('dragover', dragOverHandler);
+            columnEl.removeEventListener('drop', dropHandler);
+        }
 
-    dialog.addEventListener('close', () => {
-        StateModule.saveState();
-        RenderModule.render();
-    }, { once: true });
+        // Удаляем запись об обработчиках
+        columnHandlers.delete(columnId);
+    }
 }
 
 // Функция рендеринга колонки
 export function renderColumn(column) {
+    // Очищаем старые обработчики для этой колонки
+    cleanupColumnHandlers(column.id);
+
     const colEl = document.createElement('div');
     colEl.className = 'column';
     colEl.dataset.columnId = column.id;
@@ -154,12 +117,12 @@ export function renderColumn(column) {
 
     colEl.appendChild(headerEl);
 
-    // Добавляем обработчики событий
-    headerEl.addEventListener('dblclick', async () => {
+    // Создаем обработчики событий
+    const dblClickHandler = async () => {
         await openColumnDialog(column);
-    });
+    };
 
-    colEl.addEventListener('dragstart', (e) => {
+    const dragStartHandler = (e) => {
         // Проверяем, что начали тащить за заголовок колонки
         const header = colEl.querySelector('.column-header');
         if (!e.target.contains(header)) {
@@ -170,11 +133,56 @@ export function renderColumn(column) {
         colEl.classList.add('dragging');
         // Устанавливаем данные для переноса
         e.dataTransfer.setData('text/plain', colEl.dataset.columnId);
-    });
+    };
 
-    colEl.addEventListener('dragend', () => {
+    const dragEndHandler = () => {
         colEl.classList.remove('dragging');
-        removeAllDropIndicators();
+        DragDrop.removeAllDropIndicators();
+    };
+
+    const dragOverHandler = (e) => {
+        const draggingTask = document.querySelector('.task.dragging');
+        const draggingCol = document.querySelector('.column.dragging');
+        if (!draggingTask && !draggingCol) return;
+
+        if (draggingTask) {
+            DragDrop.showTaskDropIndicator(e, colEl, draggingTask);
+        } else {
+            if (draggingCol === colEl) return;
+            DragDrop.showColumnDropIndicator(e, draggingCol);
+        }
+    };
+
+    const dropHandler = (e) => {
+        const draggingTask = document.querySelector('.task.dragging');
+        const draggingCol = document.querySelector('.column.dragging');
+        if (!draggingTask && !draggingCol) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (draggingTask) {
+            DragDrop.handleTaskDrop(e, colEl);
+        } else {
+            DragDrop.handleColumnDrop(e);
+        }
+    };
+
+    // Добавляем обработчики
+    headerEl.addEventListener('dblclick', dblClickHandler);
+    colEl.addEventListener('dragstart', dragStartHandler);
+    colEl.addEventListener('dragend', dragEndHandler);
+    colEl.addEventListener('dragover', dragOverHandler);
+    colEl.addEventListener('drop', dropHandler);
+
+    // Сохраняем ссылки на обработчики
+    columnHandlers.set(column.id, {
+        elements: { headerEl, columnEl: colEl },
+        dblClickHandler,
+        dragStartHandler,
+        dragEndHandler,
+        dragOverHandler,
+        dropHandler
     });
 
     // Рендерим задачи
@@ -192,4 +200,80 @@ export function renderColumn(column) {
     colEl.appendChild(addTaskBtn);
 
     return colEl;
+}
+
+// Функции для работы с диалогом колонки
+export function openColumnDialog(existingColumn = null) {
+    const dialog = document.getElementById('column-dialog');
+    const form = dialog.querySelector('form');
+    const nameInput = document.getElementById('column-name');
+    const submitButton = form.querySelector('button[type="submit"]');
+    const titleEl = dialog.querySelector('h3');
+    const deleteBtn = form.querySelector('.delete-btn');
+    const board = BoardManager.getSelectedBoard();
+
+    if (!board) return;
+
+    // Настраиваем диалог
+    titleEl.textContent = existingColumn ? 'Редактировать колонку' : 'Новая колонка';
+    submitButton.textContent = existingColumn ? 'Сохранить' : 'Создать';
+
+    // Заполняем форму данными существующей колонки или очищаем
+    if (existingColumn) {
+        nameInput.value = existingColumn.name;
+    } else {
+        form.reset();
+    }
+
+    // Создаем обработчики
+    const handleDelete = async () => {
+        const confirmed = await showConfirmDialog(
+            `Вы уверены, что хотите удалить колонку "${existingColumn.name}" со всеми задачами?`
+        );
+        if (confirmed) {
+            if (deleteColumn(existingColumn.id)) {
+                dialog.close('deleted');
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const name = nameInput.value.trim();
+        if (!name) return;
+
+        if (existingColumn) {
+            updateColumn(existingColumn.id, { name });
+        } else {
+            const newColumn = createColumn(board.id, { name });
+            board.columns.push(newColumn);
+        }
+        dialog.close('submit');
+    };
+
+    const handleClose = () => {
+        // Удаляем все обработчики
+        form.removeEventListener('submit', handleSubmit);
+        if (existingColumn) {
+            deleteBtn.removeEventListener('click', handleDelete);
+        }
+        dialog.removeEventListener('close', handleClose);
+
+        StateModule.saveState();
+        RenderModule.render();
+    };
+
+    // Добавляем обработчики
+    form.addEventListener('submit', handleSubmit);
+    if (existingColumn) {
+        deleteBtn.style.display = 'block';
+        deleteBtn.addEventListener('click', handleDelete);
+    } else {
+        deleteBtn.style.display = 'none';
+    }
+
+    dialog.addEventListener('close', handleClose, { once: true });
+    dialog.showModal();
 }
