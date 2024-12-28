@@ -1,10 +1,10 @@
 // Модуль для работы с досками
 import { generateId } from '../utils.js';
 import { showConfirmDialog } from './uiComponents.js';
-import * as StateModule from './stateModule.js';
 import * as RenderModule from './renderModule.js';
 import * as DragDrop from './dragAndDrop.js';
 import * as ColumnModule from './columnModule.js';
+import { getCurrentProvider } from '../data/dataProvider.js';
 
 const boardTitleEl = document.getElementById('board-title');
 const columnsEl = document.getElementById('columns');
@@ -14,8 +14,9 @@ let currentBoardTitleHandler = null;
 let currentColumnsDragOverHandler = null;
 let currentColumnsDropHandler = null;
 
-export function renderBoard() {
-    const board = getSelectedBoard();
+export async function renderBoard() {
+    const board = await getSelectedBoard();
+    console.log(board);
     if (!board) {
         boardTitleEl.textContent = 'Выберите доску или создайте новую';
         columnsEl.innerHTML = '';
@@ -39,8 +40,8 @@ export function renderBoard() {
     boardTitleEl.title = 'Дважды щелкните для редактирования';
 
     // Создаем новый обработчик для заголовка доски
-    currentBoardTitleHandler = async () => {
-        await openBoardDialog(board);
+    currentBoardTitleHandler = () => {
+        openBoardDialog(board);
     };
     boardTitleEl.addEventListener('dblclick', currentBoardTitleHandler);
 
@@ -62,8 +63,11 @@ export function renderBoard() {
     columnsEl.addEventListener('dragover', currentColumnsDragOverHandler);
     columnsEl.addEventListener('drop', currentColumnsDropHandler);
 
-    board.columns.forEach(column => {
-        const columnElement = ColumnModule.renderColumn(column);
+    // Сортируем колонки по полю order перед отображением
+    const sortedColumns = [...(board.columns || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    
+    sortedColumns.forEach(async column => {
+        const columnElement = await ColumnModule.renderColumn(column);
         
         // Добавляем обработчики drag & drop для колонки
         columnElement.addEventListener('dragover', (e) => {
@@ -99,68 +103,82 @@ export function renderBoard() {
 }
 
 // Базовые операции с досками
-export function createBoard(boardData) {
+export async function createBoard(boardData) {
+    const boards = await getCurrentProvider().getBoards().catch(console.error);
     const newBoard = {
         id: generateId(),
         name: boardData.name,
-        columns: []
+        columns: [],
+        order: boards.length // Новая доска добавляется в конец
     };
-    StateModule.getState().boards.push(newBoard);
-    StateModule.getState().selectedBoardId = newBoard.id;
+
+    await getCurrentProvider().createBoard(newBoard).catch(console.error);
+    await getCurrentProvider().updateSettings({ selectedBoardId: newBoard.id }).catch(console.error);
+
+    await RenderModule.render();
+
     return newBoard;
 }
 
-export function updateBoard(boardId, boardData) {
-    const board = StateModule.getState().boards.find(b => b.id === boardId);
+export async function updateBoard(boardId, boardData) {
+    const boards = await getCurrentProvider().getBoards();
+    console.log(boards);
+    const board = boards.find(b => b.id === boardId);
     if (board) {
         Object.assign(board, boardData);
+        // Используем специальный метод для обновления доски
+        await getCurrentProvider().updateBoard(boardId, boardData)
+            .catch(console.error);
     }
+    await RenderModule.render();
     return board;
 }
 
-export function deleteBoard(boardId) {
-    const boardIndex = StateModule.getState().boards.findIndex(b => b.id === boardId);
-    if (boardIndex !== -1) {
-        StateModule.getState().boards.splice(boardIndex, 1);
-        // Выбираем следующую доску или первую, если удаляем последнюю
-        if (StateModule.getState().boards.length > 0) {
-            StateModule.getState().selectedBoardId = StateModule.getState().boards[boardIndex]
-                ? StateModule.getState().boards[boardIndex].id
-                : StateModule.getState().boards[0].id;
-        } else {
-            StateModule.getState().selectedBoardId = null;
-        }
-        return true;
-    }
-    return false;
+export async function deleteBoard(boardId) {
+    await getCurrentProvider().deleteBoard(boardId)
+        .then(() => {
+            // После успешного удаления обновляем порядок оставшихся досок
+            return getCurrentProvider().updateBoardOrder(state.boards.map(b => b.id));
+        })
+        .catch(console.error);
+
+    await RenderModule.render();
+
+    return true;
 }
 
 // Функции для работы с выбранной доской
-export function getSelectedBoard() {
-    return StateModule.getState().boards.find(b => b.id === StateModule.getState().selectedBoardId);
+export async function getSelectedBoard() {
+    const data = await getCurrentProvider().getData();
+    return data.boards.find(b => b.id === data.selectedBoardId);
 }
 
-export function setSelectedBoard(boardId) {
-    if (StateModule.getState().boards.some(b => b.id === boardId)) {
-        StateModule.getState().selectedBoardId = boardId;
-        StateModule.getState().isCalendarView = false;
-        return true;
-    }
-    return false;
+export async function setSelectedBoard(boardId) {
+    await getCurrentProvider().updateSettings({
+        selectedBoardId: boardId,
+        isCalendarView: false
+    }).catch(console.error);
+
+    await RenderModule.render();
 }
 
 // Функции рендеринга
-export function renderBoardsList(boardsElement) {
+export async function renderBoardsList(boardsElement) {
+    const state = await getCurrentProvider().getData().catch(console.error);
     boardsElement.innerHTML = '';
-    StateModule.getState().boards.forEach(board => {
+
+    // Сортируем доски по полю order перед отображением
+    const sortedBoards = [...state.boards].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    sortedBoards.forEach(board => {
         const li = document.createElement('li');
         li.textContent = board.name;
         li.dataset.boardId = board.id;
-        
-        if (StateModule.getState().selectedBoardId === board.id) {
+
+        if (state.selectedBoardId === board.id) {
             li.className = 'selected';
         }
-        
+
         boardsElement.appendChild(li);
     });
 }
@@ -191,22 +209,22 @@ export function openBoardDialog(existingBoard = null) {
             `Вы уверены, что хотите удалить доску "${existingBoard.name}" со всеми колонками и задачами?`
         );
         if (confirmed) {
-            deleteBoard(existingBoard.id);
+            await deleteBoard(existingBoard.id);
             dialog.close('deleted');
             return true;
         }
         return false;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         const name = nameInput.value.trim();
         if (!name) return;
 
         if (existingBoard) {
-            updateBoard(existingBoard.id, { name });
+            await updateBoard(existingBoard.id, { name });
         } else {
-            createBoard({ name });
+            await createBoard({ name });
         }
 
         dialog.close('submit');
@@ -220,7 +238,6 @@ export function openBoardDialog(existingBoard = null) {
         }
         dialog.removeEventListener('close', handleClose);
 
-        StateModule.saveState();
         RenderModule.render();
     };
 

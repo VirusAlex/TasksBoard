@@ -1,9 +1,9 @@
 import { generateId, formatDateTime, formatTimeLeft, formatDeadlineTime } from '../utils.js';
 import { showConfirmDialog, renderLinkedText, hexToRGB, updateLineNumbers } from './uiComponents.js';
 import * as BoardModule from './boardModule.js';
-import * as StateModule from './stateModule.js';
 import * as RenderModule from './renderModule.js';
 import * as DragDrop from './dragAndDrop.js';
+import { getCurrentProvider } from '../data/dataProvider.js';
 
 // Сохраняем ссылки на обработчики событий для каждой задачи
 const taskHandlers = new Map();
@@ -85,8 +85,8 @@ export function deleteTask(taskId) {
 }
 
 // Функции для работы с сабтасками
-export function findTaskById(taskId) {
-    const board = BoardModule.getSelectedBoard();
+export async function findTaskById(taskId) {
+    const board = await BoardModule.getSelectedBoard();
     if (!board) return null;
 
     // Создаем плоский массив всех задач
@@ -123,85 +123,31 @@ export function collectSubtasks(parentTask, tasksArray) {
     }
 }
 
-export function makeSubtask(taskId, parentId) {
-    const board = BoardModule.getSelectedBoard();
-    if (!board) {
-      return;
-    }
+export async function makeSubtask(taskId, parentId) {
+    const parentTask = await findTaskById(parentId);
 
-    const task = findTaskById(taskId);
-    const parentTask = findTaskById(parentId);
-    if (!task || !parentTask) {
-      return;
-    }
+    await getCurrentProvider().updateTask(taskId, { parentId: parentId });
+    await getCurrentProvider().updateTask(parentId, { subtasks: [...(parentTask.subtasks || []), taskId] });
 
-    // Проверяем циклические зависимости
-    if (isTaskAncestor(taskId, parentId)) {
-      return;
-    }
-
-    // Находим колонку с родительской задачей
-    const parentColumn = board.columns.find(col =>
-        col.tasks.some(t => t.id === parentId)
-    );
-
-    if (!parentColumn) {
-      return;
-    }
-
-    // Удаляем задачу из текущего места
-    removeTaskFromCurrentPosition(task);
-
-    // Обновляем связи в оригинальной задаче
-    task.parentId = parentId;
-
-    // Инициализируем массив subtasks для родительской задачи, если его нет
-    if (!parentTask.subtasks) {
-      parentTask.subtasks = [];
-    }
-
-    // Добавляем ID задачи к родительской задаче
-    if (!parentTask.subtasks.includes(task.id)) {
-      parentTask.subtasks.push(task.id);
-    }
-
-    // Добавляем задачу в ту же колонку, где находится родительская задача
-    const taskIndex = parentColumn.tasks.findIndex(t => t.id === parentId);
-    if (taskIndex !== -1) {
-      // Вставляем задачу сразу после родительской задачи
-      parentColumn.tasks.splice(taskIndex + 1, 0, task);
-    } else {
-      // Если родительская задача не найдена, добавляем в конец
-      parentColumn.tasks.push(task);
-    }
-
-    // Находим нужную доску
-    const boardIndex = StateModule.getState().boards.findIndex(b => b.id === board.id);
-    if (boardIndex !== -1) {
-      // Обновляем состояние доски
-      StateModule.getState().boards[boardIndex] = board;
-    }
-
-    StateModule.saveState();
-    RenderModule.render();
+    await RenderModule.render();
   }
 
-export function isTaskAncestor(taskId, possibleAncestorId) {
-    const task = findTaskById(taskId);
+export async function isTaskAncestor(taskId, possibleAncestorId) {
+    const task = await findTaskById(taskId);
     if (!task || !task.parentId) return false;
     if (task.parentId === possibleAncestorId) return true;
-    return isTaskAncestor(task.parentId, possibleAncestorId);
+    return await isTaskAncestor(task.parentId, possibleAncestorId);
 }
 
-export function removeTaskFromCurrentPosition(task) {
+export async function removeTaskFromCurrentPosition(task) {
     if (!task) return;
 
-    const board = BoardModule.getSelectedBoard();
+    const board = await BoardModule.getSelectedBoard();
     if (!board) return;
 
     // Если это сабтаск, удаляем из родителя
     if (task.parentId) {
-        const parentTask = findTaskById(task.parentId);
+        const parentTask = await findTaskById(task.parentId);
         if (parentTask && parentTask.subtasks) {
             parentTask.subtasks = parentTask.subtasks.filter(id => id !== task.id);
         }
@@ -285,7 +231,7 @@ export function addTaskDragHandlers(taskEl) {
     // Добавляем обработчик для чекбокса, если он есть
     const checkbox = taskEl.querySelector('input[type="checkbox"]');
     if (checkbox) {
-        const checkboxChangeHandler = () => {
+        const checkboxChangeHandler = async () => {
             const task = findTaskById(taskId);
             if (task) {
                 task.done = checkbox.checked;
@@ -294,8 +240,8 @@ export function addTaskDragHandlers(taskEl) {
                 } else {
                     task.doneDate = null;
                 }
-                StateModule.saveState();
-                RenderModule.render();
+                await getCurrentProvider().updateTask(taskId, { done: task.done, doneDate: task.doneDate });
+                await RenderModule.render();
             }
         };
 
@@ -310,7 +256,7 @@ export function addTaskDragHandlers(taskEl) {
 }
 
 // Функция рендеринга задачи
-export function renderTask(task, container) {
+export async function renderTask(task, container) {
     const taskEl = document.createElement('div');
     taskEl.className = 'task' + (task.done ? ' done' : '') + (task.parentId ? ' subtask' : '') + (task.isInfo ? ' info' : '');
 
@@ -356,16 +302,6 @@ export function renderTask(task, container) {
         checkbox.type = 'checkbox';
         checkbox.checked = task.done;
         checkbox.onclick = (e) => e.stopPropagation();
-        checkbox.onchange = () => {
-            task.done = checkbox.checked;
-            if (checkbox.checked) {
-                task.doneDate = new Date().toISOString();
-            } else {
-                task.doneDate = null;
-            }
-            StateModule.saveState();
-            RenderModule.render();
-        };
         taskHeader.appendChild(checkbox);
     }
 
@@ -404,11 +340,13 @@ export function renderTask(task, container) {
         const subtasksContainer = document.createElement('div');
         subtasksContainer.className = 'subtasks-container';
 
+        console.log(task, task.subtasks);
+
         // Рендерим каждый сабтаск внутри контейнера
-        task.subtasks.forEach(subtaskId => {
-            const subtask = findTaskById(subtaskId);
+        (task.subtasks || []).forEach(async subtaskId => {
+            const subtask = await findTaskById(subtaskId);
             if (subtask) {
-                renderTask(subtask, subtasksContainer);
+                await renderTask(subtask, subtasksContainer);
             }
         });
 
@@ -944,13 +882,13 @@ function getSubtasksStats(task) {
 
 
   // Обновляем функцию проверки сброса задач
-export function checkTasksReset() {
+export async function checkTasksReset() {
     const now = new Date();
-    let needsSave = false;
 
-    StateModule.getState().boards.forEach(board => {
-      board.columns.forEach(col => {
-        col.tasks.forEach(task => {
+    const state = await getCurrentProvider().getData();
+    (state.boards || []).forEach(async board => {
+      (board.columns || []).forEach(async col => {
+        (col.tasks || []).forEach(async task => {
           if (task.repeating && task.done && task.doneDate) {
             let shouldReset = false;
 
@@ -979,17 +917,14 @@ export function checkTasksReset() {
             if (shouldReset) {
               task.done = false;
               task.doneDate = null;
-              needsSave = true;
+
+              await getCurrentProvider().updateTask(task.id, { done: false, doneDate: null });
               rerenderTask(task.id);
             }
           }
         });
       });
     });
-
-    if (needsSave) {
-      StateModule.saveState();
-    }
 }
 
 // Функция для перерисовки конкретной задачи

@@ -4,44 +4,11 @@ import { showConfirmDialog } from './uiComponents.js';
 import * as BoardManager from './boardModule.js';
 import * as TaskManager from './taskModule.js';
 import * as DragDrop from './dragAndDrop.js';
-import * as StateModule from './stateModule.js';
 import * as RenderModule from './renderModule.js';
+import { getCurrentProvider } from '../data/dataProvider.js';
 
 // Сохраняем ссылки на обработчики событий для каждой колонки
 const columnHandlers = new Map();
-
-// Базовые операции с колонками
-export function createColumn(boardId, columnData) {
-    const newColumn = {
-        id: generateId(),
-        name: columnData.name,
-        tasks: []
-    };
-    return newColumn;
-}
-
-export function updateColumn(columnId, columnData) {
-    const board = BoardManager.getSelectedBoard();
-    if (!board) return null;
-
-    const column = board.columns.find(c => c.id === columnId);
-    if (column) {
-        Object.assign(column, columnData);
-    }
-    return column;
-}
-
-export function deleteColumn(columnId) {
-    const board = BoardManager.getSelectedBoard();
-    if (!board) return false;
-
-    const columnIndex = board.columns.findIndex(c => c.id === columnId);
-    if (columnIndex !== -1) {
-        board.columns.splice(columnIndex, 1);
-        return true;
-    }
-    return false;
-}
 
 // Вспомогательные функции
 export function getColumnStats(column) {
@@ -52,7 +19,7 @@ export function getColumnStats(column) {
         done: 0
     };
 
-    column.tasks.forEach(task => {
+    (column.tasks || []).forEach(task => {
         if (!task.isInfo && !task.parentId) { // Считаем только основные задачи
             stats.total++;
             if (task.done) stats.done++;
@@ -86,7 +53,7 @@ function cleanupColumnHandlers(columnId) {
 }
 
 // Функция рендеринга колонки
-export function renderColumn(column) {
+export async function renderColumn(column) {
     // Очищаем старые обработчики для этой колонки
     cleanupColumnHandlers(column.id);
 
@@ -186,9 +153,9 @@ export function renderColumn(column) {
     });
 
     // Рендерим задачи
-    column.tasks
+    (column.tasks || [])
         .filter(task => !task.parentId) // Только задачи верхнего уровня
-        .forEach(task => TaskManager.renderTask(task, colEl));
+        .forEach(async task => await TaskManager.renderTask(task, colEl));
 
     // Кнопка добавления задачи
     const addTaskBtn = document.createElement('button');
@@ -203,14 +170,14 @@ export function renderColumn(column) {
 }
 
 // Функции для работы с диалогом колонки
-export function openColumnDialog(existingColumn = null) {
+export async function openColumnDialog(existingColumn = null) {
     const dialog = document.getElementById('column-dialog');
     const form = dialog.querySelector('form');
     const nameInput = document.getElementById('column-name');
     const submitButton = form.querySelector('button[type="submit"]');
     const titleEl = dialog.querySelector('h3');
     const deleteBtn = form.querySelector('.delete-btn');
-    const board = BoardManager.getSelectedBoard();
+    const board = await BoardManager.getSelectedBoard();
 
     if (!board) return;
 
@@ -231,7 +198,7 @@ export function openColumnDialog(existingColumn = null) {
             `Вы уверены, что хотите удалить колонку "${existingColumn.name}" со всеми задачами?`
         );
         if (confirmed) {
-            if (deleteColumn(existingColumn.id)) {
+            if (await getCurrentProvider().deleteColumn(existingColumn.id)) {
                 dialog.close('deleted');
                 return true;
             }
@@ -239,21 +206,26 @@ export function openColumnDialog(existingColumn = null) {
         return false;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         const name = nameInput.value.trim();
         if (!name) return;
 
         if (existingColumn) {
-            updateColumn(existingColumn.id, { name });
+            await getCurrentProvider().updateColumn(existingColumn.id, { name });
         } else {
-            const newColumn = createColumn(board.id, { name });
-            board.columns.push(newColumn);
+            const columnData = {
+                id: generateId(),
+                name,
+                boardId: board.id,
+                order: board.columns.length
+            };
+            await getCurrentProvider().createColumn(columnData);
         }
         dialog.close('submit');
     };
 
-    const handleClose = () => {
+    const handleClose = async () => {
         // Удаляем все обработчики
         form.removeEventListener('submit', handleSubmit);
         if (existingColumn) {
@@ -261,8 +233,7 @@ export function openColumnDialog(existingColumn = null) {
         }
         dialog.removeEventListener('close', handleClose);
 
-        StateModule.saveState();
-        RenderModule.render();
+        await RenderModule.render();
     };
 
     // Добавляем обработчики

@@ -8,10 +8,7 @@ export class IndexedDBProvider extends DataProvider {
         this.initialized = false;
         this.db = null;
         this.initializationPromise = null;
-        this.cache = {
-            boards: null,
-            settings: null
-        };
+        this.cache = null;
     }
 
     async initialize() {
@@ -151,6 +148,10 @@ export class IndexedDBProvider extends DataProvider {
 
     // Базовые методы для обратной совместимости
     async getData() {
+        if (this.cache) {
+            return this.cache;
+        }
+
         await this.initialize();
         
         if (!this.db) {
@@ -196,16 +197,8 @@ export class IndexedDBProvider extends DataProvider {
             };
 
             // Сохраняем результат в кэш
-            this.cache = {
-                boards: result.boards,
-                settings: {
-                    id: 'app',
-                    selectedBoardId: result.selectedBoardId,
-                    isCalendarView: result.isCalendarView
-                }
-            };
-
-            return result;
+            this.cache = result;
+            return this.cache;
 
         } catch (error) {
             console.error('Failed to get data from IndexedDB:', error);
@@ -298,28 +291,47 @@ export class IndexedDBProvider extends DataProvider {
 
     // Реализация новых методов
     async getBoards() {
-        if (this.cache.boards) {
-            return this.cache.boards;
+        if (!this.cache) {
+            await this.getData();
         }
-        const boards = await this._getAllFromStore('boards');
-        this.cache.boards = boards.sort((a, b) => a.order - b.order);
         return this.cache.boards;
     }
 
     async createBoard(board) {
-        await this._addToStore('boards', board);
-        this.cache.boards = null;
+        const store = await this._getStore('boards', 'readwrite');
+        await this._addToStore(store, board);
+        if (this.cache) {
+            if (!this.cache.boards) {
+                this.cache.boards = [];
+            }
+            this.cache.boards.push(board);
+        } else {
+            await this.invalidateCache();
+        }
+
         return board;
     }
 
     async updateBoard(boardId, updates) {
-        const board = await this._getStore('boards').get(boardId);
+        const store = await this._getStore('boards', 'readwrite');
+
+        const board = await this._getFromStore(store, boardId);
         if (!board) {
             throw new Error('Board not found');
         }
+
         const updatedBoard = { ...board, ...updates };
-        await this._updateInStore('boards', updatedBoard);
-        this.cache.boards = null;
+        await this._updateInStore(store, updatedBoard);
+
+        if (this.cache?.boards) {
+            const index = this.cache.boards.findIndex(b => b.id === boardId);
+            if (index !== -1) {
+                this.cache.boards[index] = updatedBoard;
+            }
+        } else {
+            await this.invalidateCache();
+        }
+
         return updatedBoard;
     }
 
@@ -352,8 +364,15 @@ export class IndexedDBProvider extends DataProvider {
                 await this._updateInStore('settings', settings);
             }
 
-            this.cache.boards = null;
-            this.cache.settings = null;
+            if (this.cache?.boards) {
+                const index = this.cache.boards.findIndex(b => b.id === boardId);
+                if (index !== -1) {
+                    this.cache.boards.splice(index, 1);
+                }
+            } else {
+                await this.invalidateCache();
+            }
+
             return true;
         } catch (error) {
             console.error('Failed to delete board:', error);
@@ -388,7 +407,9 @@ export class IndexedDBProvider extends DataProvider {
                 transaction.onerror = () => reject(transaction.error);
             });
 
-            await this.invalidateCache();
+            if (this.cache) {
+                this.cache.boards.sort((a, b) => a.order - b.order);
+            }
         } catch (error) {
             console.error('Failed to update board order:', error);
             throw error;
@@ -396,37 +417,86 @@ export class IndexedDBProvider extends DataProvider {
     }
 
     async getColumns(boardId) {
-        const columns = await this._getFromIndex('columns', 'boardId', boardId);
-        return columns.sort((a, b) => a.order - b.order);
+        if (!this.cache) {
+            await this.getData();
+        }
+        if (!this.cache.boards) {
+            return [];
+        }
+        const board = this.cache.boards.find(b => b.id === boardId);
+        return board ? board.columns : [];
     }
 
     async createColumn(column) {
-        await this._addToStore('columns', column);
+        const store = await this._getStore('columns', 'readwrite');
+        console.log(column);
+        await this._addToStore(store, column);
+
+        if (this.cache?.boards) {
+            const board = this.cache.boards.find(b => b.id === column.boardId);
+            if (board) {
+                if (!board.columns) {
+                    board.columns = [];
+                }
+                board.columns.push(column);
+            }
+        } else {
+            await this.invalidateCache();
+        }
+
         return column;
     }
 
     async updateColumn(columnId, updates) {
-        const column = await this._getStore('columns').get(columnId);
-        if (!column) {
-            throw new Error('Column not found');
+        const store = await this._getStore('columns', 'readwrite');
+        const column = await this._getFromStore(store, columnId);
+        if (!column || !column.id) {
+            throw new Error('Column not found: ' + columnId);
         }
         const updatedColumn = { ...column, ...updates };
-        await this._updateInStore('columns', updatedColumn);
+        await this._updateInStore(store, updatedColumn);
+
+        if (this.cache?.boards) {
+            const board = this.cache.boards.find(b => b.id === updatedColumn.boardId);
+            if (board) {
+                const index = board.columns.findIndex(c => c.id === columnId);
+                if (index !== -1) {
+                    board.columns[index] = updatedColumn;
+                }
+            }
+        } else {
+            await this.invalidateCache();
+        }
+
         return updatedColumn;
     }
 
     async deleteColumn(columnId) {
         const transaction = this.db.transaction(['columns', 'tasks'], 'readwrite');
+        const columnStore = transaction.objectStore('columns');
+        const taskStore = transaction.objectStore('tasks');
 
         try {
             // Удаляем колонку
-            await this._deleteFromStore('columns', columnId);
+            await this._deleteFromStore(columnStore, columnId);
 
             // Удаляем все задачи колонки
-            const tasks = await this._getFromIndex('tasks', 'columnId', columnId);
+            const tasks = await this._getFromIndex(taskStore, 'columnId', columnId);
             await Promise.all(tasks.map(task =>
-                this._deleteFromStore('tasks', task.id)
+                this._deleteFromStore(taskStore, task.id)
             ));
+
+            if (this.cache?.boards) {
+                const board = this.cache.boards.find(b => b.columns.some(c => c.id === columnId));
+                if (board) {
+                    const index = board.columns.findIndex(c => c.id === columnId);
+                    if (index !== -1) {
+                        board.columns.splice(index, 1);
+                    }
+                }
+            } else {
+                await this.invalidateCache();
+            }
 
             return true;
         } catch (error) {
@@ -463,7 +533,15 @@ export class IndexedDBProvider extends DataProvider {
                 transaction.onerror = () => reject(transaction.error);
             });
 
-            await this.invalidateCache();
+            if (this.cache?.boards) {
+                const board = this.cache.boards.find(b => b.id === boardId);
+                if (board) {
+                    board.columns.sort((a, b) => a.order - b.order);
+                }
+            } else {
+                await this.invalidateCache();
+            }
+
         } catch (error) {
             console.error('Failed to update column order:', error);
             throw error;
@@ -471,28 +549,85 @@ export class IndexedDBProvider extends DataProvider {
     }
 
     async getTasks(columnId) {
-        const tasks = await this._getFromIndex('tasks', 'columnId', columnId);
-        return tasks.sort((a, b) => a.order - b.order);
+        if (!this.cache) {
+            await this.getData();
+        }
+        if (!this.cache.boards) {
+            return [];
+        }
+        const tasks = this.cache.boards
+            .flatMap(b => b.columns)
+            .find(c => c.id === columnId)?.tasks;
+        return tasks || [];
     }
 
     async createTask(task) {
         await this._addToStore('tasks', task);
+
+        if (this.cache?.boards) {
+            const column = this.cache.boards
+                .flatMap(b => b.columns)
+                .find(c => c.id === task.columnId);
+            if (column) {
+                if (!column.tasks) {
+                    column.tasks = [];
+                }
+                column.tasks.push(task);
+            }
+        } else {
+            await this.invalidateCache();
+        }
+
         return task;
     }
 
     async updateTask(taskId, updates) {
-        const task = await this._getStore('tasks').get(taskId);
+        console.log(taskId, updates, new Error().stack);
+        const taskStore = await this._getStore('tasks', 'readwrite');
+        const task = await this._getFromStore(taskStore, taskId);
         if (!task) {
             throw new Error('Task not found');
         }
+        console.log(task);
         const updatedTask = { ...task, ...updates };
-        await this._updateInStore('tasks', updatedTask);
+        console.log(updatedTask);
+        await this._updateInStore(taskStore, updatedTask);
+
+        if (this.cache?.boards) {
+            const column = this.cache.boards
+                .flatMap(b => b.columns)
+                .find(c => c.id === updatedTask.columnId);
+            if (column) {
+                const index = column.tasks.findIndex(t => t.id === taskId);
+                if (index !== -1) {
+                    column.tasks[index] = updatedTask;
+                }
+            }
+        } else {
+            await this.invalidateCache();
+        }
+
         return updatedTask;
     }
 
     async deleteTask(taskId) {
         try {
             await this._deleteFromStore('tasks', taskId);
+
+            if (this.cache?.boards) {
+                const column = this.cache.boards
+                    .flatMap(b => b.columns)
+                    .find(c => c.tasks.some(t => t.id === taskId));
+                if (column) {
+                    const index = column.tasks.findIndex(t => t.id === taskId);
+                    if (index !== -1) {
+                        column.tasks.splice(index, 1);
+                    }
+                }
+            } else {
+                await this.invalidateCache();
+            }
+
             return true;
         } catch (error) {
             console.error('Failed to delete task:', error);
@@ -536,6 +671,29 @@ export class IndexedDBProvider extends DataProvider {
                 return this._updateInStore('tasks', t);
             }));
 
+            if (this.cache?.boards) {
+                const oldColumn = this.cache.boards
+                    .flatMap(b => b.columns)
+                    .find(c => c.id === oldColumnId);
+                const newColumn = this.cache.boards
+                    .flatMap(b => b.columns)
+                    .find(c => c.id === newColumnId);
+                if (oldColumn && newColumn) {
+                    const oldIndex = oldColumn.tasks.findIndex(t => t.id === taskId);
+                    const newIndex = newColumn.tasks.findIndex(t => t.id === taskId);
+                    if (oldIndex !== -1) {
+                        oldColumn.tasks.splice(oldIndex, 1);
+                    }
+                    if (newIndex === -1) {
+                        newColumn.tasks.splice(newOrder, 0, task);
+                    } else {
+                        newColumn.tasks[newIndex] = task;
+                    }
+                }
+            } else {
+                await this.invalidateCache();
+            }
+
             return task;
         } catch (error) {
             console.error('Failed to move task:', error);
@@ -571,6 +729,17 @@ export class IndexedDBProvider extends DataProvider {
                 transaction.onerror = () => reject(transaction.error);
             });
 
+            if (this.cache?.boards) {
+                const column = this.cache.boards
+                    .flatMap(b => b.columns)
+                    .find(c => c.id === columnId);
+                if (column) {
+                    column.tasks.sort((a, b) => a.order - b.order);
+                }
+            } else {
+                await this.invalidateCache();
+            }
+
             await this.invalidateCache();
         } catch (error) {
             console.error('Failed to update task order:', error);
@@ -579,30 +748,36 @@ export class IndexedDBProvider extends DataProvider {
     }
 
     async getSettings() {
-        if (this.cache.settings) {
-            return this.cache.settings;
+        if (!this.cache) {
+            await this.getData();
         }
-        const settings = await this._getFromStore('settings', 'app') || {
-            id: 'app',
-            selectedBoardId: null,
-            isCalendarView: false
+        return {
+            selectedBoardId: this.cache.selectedBoardId,
+            isCalendarView: this.cache.isCalendarView
         };
-        this.cache.settings = settings;
-        return settings;
     }
 
     async updateSettings(settings) {
         const updatedSettings = { id: 'app', ...settings };
-        await this._updateInStore('settings', updatedSettings);
-        this.cache.settings = updatedSettings;
+
+        const transaction = this.db.transaction(['settings'], 'readwrite');
+        const store = transaction.objectStore('settings');
+
+
+        await this._updateInStore(store, updatedSettings);
+
+        if (this.cache) {
+            this.cache.selectedBoardId = settings.selectedBoardId;
+            this.cache.isCalendarView = settings.isCalendarView;
+        } else {
+            await this.invalidateCache();
+        }
+
         return updatedSettings;
     }
 
     async invalidateCache() {
-        this.cache = {
-            boards: null,
-            settings: null
-        };
+        this.cache = null;
     }
 
     async clearCache() {

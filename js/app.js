@@ -57,7 +57,7 @@ async function initApp(config = { type: 'local' }) {
       ColumnManager.openColumnDialog();
     });
 
-    RenderModule.render();
+    await RenderModule.render();
 
     // Добавляем в начало скрипта, после объявления переменных
     const themeToggle = document.getElementById('theme-toggle');
@@ -158,7 +158,7 @@ async function initApp(config = { type: 'local' }) {
           if (confirmed) {
             StateModule.setState(importedData);
             StateModule.saveState();
-            RenderModule.render();
+            await RenderModule.render();
           }
         } catch (err) {
           alert('Ошибка при импорте файла: ' + err.message);
@@ -171,10 +171,10 @@ async function initApp(config = { type: 'local' }) {
 
     // Добавляем обработчики для календаря
     const calendarViewEl = document.getElementById('calendar-view');
-    calendarViewEl?.addEventListener('click', () => {
+    calendarViewEl?.addEventListener('click', async () => {
       StateModule.setState({...StateModule.getState(), isCalendarView: true, selectedBoardId: null});
       StateModule.saveState();
-      RenderModule.render();
+      await RenderModule.render();
     });
 
 
@@ -191,16 +191,13 @@ async function initApp(config = { type: 'local' }) {
     });
 
     // Обновляем обработчики для досок
-    boardsEl.addEventListener('click', (e) => {
+    boardsEl.addEventListener('click', async (e) => {
       if (e.target.id === 'calendar-view') return;
 
       const li = e.target.closest('li');
       if (!li) return;
 
-      if (BoardManager.setSelectedBoard(li.dataset.boardId)) {
-          StateModule.saveState();
-          RenderModule.render();
-      }
+      await BoardManager.setSelectedBoard(li.dataset.boardId);
 
       if (window.innerWidth <= 768) {
           document.body.classList.remove('sidebar-open');

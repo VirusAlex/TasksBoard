@@ -1,7 +1,7 @@
 import * as BoardManager from './boardModule.js';
 import * as TaskManager from './taskModule.js';
 import * as RenderModule from './renderModule.js';
-import * as StateModule from './stateModule.js';
+import { getCurrentProvider } from '../data/dataProvider.js';
 
 // Добавляем глобальную переменную для отслеживания состояния
 let isProcessingDrop = false;
@@ -156,7 +156,7 @@ export function removeAllDropIndicators() {
 }
 
 // Обработчики событий drag and drop
-export function handleTaskDrop(e, container) {
+export async function handleTaskDrop(e, container) {
     if (isProcessingDrop) return;
 
     const draggingTask = document.querySelector('.task.dragging');
@@ -168,7 +168,7 @@ export function handleTaskDrop(e, container) {
 
     try {
       const draggedTaskId = draggingTask.dataset.taskId;
-      const board = BoardManager.getSelectedBoard();
+      const board = await BoardManager.getSelectedBoard();
 
       // Определяем тип контейнера и цели
       const isColumn = container.classList.contains('column');
@@ -186,11 +186,11 @@ export function handleTaskDrop(e, container) {
 
       if (subtaskIndicator && targetTask) {
         // Случай 1: Создание сабтаска
-        TaskManager.makeSubtask(draggedTaskId, targetTask.dataset.taskId);
+        await TaskManager.makeSubtask(draggedTaskId, targetTask.dataset.taskId);
       } else if (taskIndicator && parentTaskEl) {
         // Случай 2: Перемещение внутри списка сабтасков
-        const draggedTask = TaskManager.findTaskById(draggedTaskId);
-        const parentTask = TaskManager.findTaskById(parentTaskEl.dataset.taskId);
+        const draggedTask = await TaskManager.findTaskById(draggedTaskId);
+        const parentTask = await TaskManager.findTaskById(parentTaskEl.dataset.taskId);
         const tasks = parentTask.subtasks;
 
         // Определяем позицию вставки
@@ -208,7 +208,7 @@ export function handleTaskDrop(e, container) {
         }
 
         // Обновляем позицию
-        TaskManager.removeTaskFromCurrentPosition(draggedTask);
+        await TaskManager.removeTaskFromCurrentPosition(draggedTask);
         column.tasks.push(draggedTask);
         draggedTask.parentId = parentTask.id;
         parentTask.subtasks.splice(finalIndex, 0, draggedTaskId);
@@ -235,7 +235,7 @@ export function handleTaskDrop(e, container) {
           finalIndex = currentIndex < finalIndex ? finalIndex - 1 : finalIndex;
         }
 
-        moveTaskToColumn(draggedTaskId, columnId, finalIndex);
+        await moveTaskToColumn(draggedTaskId, columnId, finalIndex);
       }
     } finally {
       isProcessingDrop = false;
@@ -243,17 +243,12 @@ export function handleTaskDrop(e, container) {
     }
   }
 
-  function moveTaskToColumn(taskId, newColumnId, position = -1) {
-    const board = BoardManager.getSelectedBoard();
-    const task = TaskManager.findTaskById(taskId);
+  async function moveTaskToColumn(taskId, newColumnId, position = -1) {
+    const board = await BoardManager.getSelectedBoard();
+    const task = await TaskManager.findTaskById(taskId);
+    const parentTask = await TaskManager.findTaskById(task.parentId);
 
     if (!task) return;
-
-    // Удаляем задачу из текущего места
-    TaskManager.removeTaskFromCurrentPosition(task);
-
-    // Сбрасываем parentId, так как задача теперь не сабтаск
-    task.parentId = null;
 
     // Находим целевую колонку
     const targetColumn = board.columns.find(col => col.id === newColumnId);
@@ -265,12 +260,26 @@ export function handleTaskDrop(e, container) {
     } else {
       targetColumn.tasks.push(task);
     }
+    
+    await Promise.all(targetColumn.tasks.map(async (task, index) => {
+      if (task.order === index) return;
 
-    StateModule.saveState();
-    RenderModule.render();
+      let changes = {};
+      changes.order = index;
+
+      if (task.id === taskId) {
+        changes.columnId = newColumnId;
+        changes.parentId = null;
+      }
+
+      await getCurrentProvider().updateTask(task.id, changes);
+    }));
+    await getCurrentProvider().updateTask(parentTask.id, { subtasks: (parentTask.subtasks || []).filter(id => id !== taskId) });
+
+    await RenderModule.render();
   }
 
-export function handleColumnDrop(event) {
+export async function handleColumnDrop(event) {
     const draggingCol = document.querySelector('.column.dragging');
     if (!draggingCol) return;
 
@@ -278,7 +287,7 @@ export function handleColumnDrop(event) {
     event.stopPropagation();
 
     try {
-        const board = BoardManager.getSelectedBoard();
+        const board = await BoardManager.getSelectedBoard();
         const draggedColId = draggingCol.dataset.columnId;
         const currentIndex = board.columns.findIndex(col => col.id === draggedColId);
 
@@ -296,11 +305,15 @@ export function handleColumnDrop(event) {
 
         // Перемещаем колонку в новую позицию
         if (finalIndex !== -1) {
-            const [movedColumn] = board.columns.splice(currentIndex, 1);
-            board.columns.splice(finalIndex, 0, movedColumn);
-            
-            StateModule.saveState();
-            RenderModule.render();
+            const boardColumns = Object.assign([], board.columns);
+            const [movedColumn] = boardColumns.splice(currentIndex, 1);
+            boardColumns.splice(finalIndex, 0, movedColumn);
+
+            await Promise.all(boardColumns.map(async (col, index) => {
+                await getCurrentProvider().updateColumn(col.id, { order: index });
+            }));
+
+            await RenderModule.render();
         }
     } finally {
         removeAllDropIndicators();

@@ -17,6 +17,8 @@ export async function showConfirmDialog(message) {
 
 // Функции форматирования текста
 export function formatDescription(text) {
+    if (!text) return '';
+
     // Сначала обрабатываем Markdown-ссылки [text](url)
     let formatted = text.replace(
         /\[([^\]]+)\]\(([^)]+)\)/g,
