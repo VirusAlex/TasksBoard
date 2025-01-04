@@ -50,25 +50,30 @@ function startDragging(e, target) {
   draggedElement = target;
 
   const touch = e.touches[0];
-  const rect = target.getBoundingClientRect();
   
-  xOffset = touch.clientX - rect.left;
-  yOffset = touch.clientY - rect.top;
+  // Проверяем, поддерживает ли браузер нативный drag and drop
+  const hasNativeDragDrop = e.type === 'dragstart' || ('dataTransfer' in e && e.dataTransfer.effectAllowed);
+  
+  if (!hasNativeDragDrop) {
+    const rect = target.getBoundingClientRect();
+    xOffset = touch.clientX - rect.left;
+    yOffset = touch.clientY - rect.top;
 
-  draggedClone = target.cloneNode(true);
-  draggedClone.classList.add('dragging');
-  draggedClone.style.position = 'fixed';
-  draggedClone.style.pointerEvents = 'none';
-  draggedClone.style.width = rect.width + 'px';
-  draggedClone.style.opacity = '0.8';
-  
-  draggedClone.style.left = (touch.clientX - xOffset) + 'px';
-  draggedClone.style.top = (touch.clientY - yOffset) + 'px';
-  
-  document.body.appendChild(draggedClone);
+    draggedClone = target.cloneNode(true);
+    draggedClone.classList.add('dragging');
+    draggedClone.style.position = 'fixed';
+    draggedClone.style.pointerEvents = 'none';
+    draggedClone.style.width = rect.width + 'px';
+    draggedClone.style.opacity = '0.8';
+    
+    draggedClone.style.left = (touch.clientX - xOffset) + 'px';
+    draggedClone.style.top = (touch.clientY - yOffset) + 'px';
+    
+    document.body.appendChild(draggedClone);
 
-  initialX = touch.clientX - xOffset;
-  initialY = touch.clientY - yOffset;
+    initialX = touch.clientX - xOffset;
+    initialY = touch.clientY - yOffset;
+  }
 
   draggedElement.classList.add('dragging');
   draggedElement.style.opacity = '0.4';
@@ -166,10 +171,13 @@ function handleTouchMove(e) {
   }
 
   e.preventDefault();
-  currentX = touch.clientX - initialX;
-  currentY = touch.clientY - initialY;
 
-  draggedClone.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+  // Обновляем позицию клона только если он существует
+  if (draggedClone) {
+    currentX = touch.clientX - initialX;
+    currentY = touch.clientY - initialY;
+    draggedClone.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+  }
 
   const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
   if (!elemBelow) return;
