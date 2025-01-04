@@ -1,4 +1,5 @@
 import { generateId, formatDateTime, formatTimeLeft, formatDeadlineTime } from './utils.js';
+import { initTouchDrag } from './modules/touchDragHandler.js';
 
 function initApp() {
 
@@ -141,12 +142,18 @@ function initApp() {
         }
 
         colEl.classList.add('dragging');
+        document.body.classList.add('dragging');
         // Устанавливаем данные для переноса
-        e.dataTransfer.setData('text/plain', colEl.dataset.columnId);
+        if (e.dataTransfer) {
+          e.dataTransfer.setData('text/plain', colEl.dataset.columnId);
+        } else if (e.detail?.dataTransfer) {
+          e.detail.dataTransfer.setData('text/plain', colEl.dataset.columnId);
+        }
       });
 
       colEl.addEventListener('dragend', () => {
         colEl.classList.remove('dragging');
+        document.body.classList.remove('dragging');
         removeAllDropIndicators();
       });
 
@@ -1386,11 +1393,18 @@ function initApp() {
     taskEl.addEventListener('dragstart', (e) => {
       e.stopPropagation(); // Предотвращаем всплытие, чтобы не перетаскивалась колонка
       taskEl.classList.add('dragging');
+      document.body.classList.add('dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.setData('text/plain', taskEl.dataset.taskId);
+      } else if (e.detail?.dataTransfer) {
+        e.detail.dataTransfer.setData('text/plain', taskEl.dataset.taskId);
+      }
     });
 
     taskEl.addEventListener('dragend', (e) => {
       e.stopPropagation();
       taskEl.classList.remove('dragging');
+      document.body.classList.remove('dragging');
       removeAllDropIndicators();
     });
 
@@ -1474,7 +1488,16 @@ function initApp() {
     isProcessingDrop = true;
 
     try {
-      const draggedTaskId = draggingTask.dataset.taskId;
+      let draggedTaskId;
+      if (e.dataTransfer) {
+        draggedTaskId = e.dataTransfer.getData('text/plain');
+      } else if (e.detail?.dataTransfer) {
+        draggedTaskId = e.detail.dataTransfer.getData('text/plain');
+      } else {
+        draggedTaskId = draggingTask.dataset.transferData;
+      }
+      if (!draggedTaskId) return;
+
       const board = getSelectedBoard();
 
       // Определяем тип контейнера и цели
@@ -1560,8 +1583,17 @@ function initApp() {
     isProcessingDrop = true;
 
     try {
+      let draggedColId;
+      if (e.dataTransfer) {
+        draggedColId = e.dataTransfer.getData('text/plain');
+      } else if (e.detail?.dataTransfer) {
+        draggedColId = e.detail.dataTransfer.getData('text/plain');
+      } else {
+        draggedColId = draggingCol.dataset.transferData;
+      }
+      if (!draggedColId) return;
+
       const board = getSelectedBoard();
-      const draggedColId = draggingCol.dataset.columnId;
       const currentIndex = board.columns.findIndex(col => col.id === draggedColId);
 
       // Находим позицию для вставки
@@ -1599,8 +1631,8 @@ function initApp() {
     indicator.className = 'column-drop-indicator';
 
     // Находим ближайшую колонку к курсору
-    const columns = Array.from(document.querySelectorAll('.column'));
-    const mouseX = e.clientX;
+    const columns = Array.from(document.querySelectorAll('#columns > .column'));
+    const mouseX = e.detail?.clientX || e.clientX;
     let closestColumn = null;
     let minDistance = Infinity;
 
@@ -1616,15 +1648,21 @@ function initApp() {
       }
     });
 
+    const columnsContainer = document.getElementById('columns');
     if (closestColumn) {
       const rect = closestColumn.getBoundingClientRect();
       if (mouseX < rect.left + rect.width / 2) {
-        columnsEl.insertBefore(indicator, closestColumn);
+        columnsContainer.insertBefore(indicator, closestColumn);
       } else {
-        columnsEl.insertBefore(indicator, closestColumn.nextSibling);
+        const nextColumn = closestColumn.nextElementSibling;
+        if (nextColumn) {
+          columnsContainer.insertBefore(indicator, nextColumn);
+        } else {
+          columnsContainer.appendChild(indicator);
+        }
       }
     } else {
-      columnsEl.appendChild(indicator);
+      columnsContainer.appendChild(indicator);
     }
   }
 
@@ -1645,7 +1683,7 @@ function initApp() {
 
       const taskRect = taskEl.getBoundingClientRect();
       const partHeight = taskRect.height / 4;
-      const mouseY = e.clientY - taskRect.top;
+      const mouseY = (e.detail?.clientY || e.clientY) - taskRect.top;
 
       const subtasksContainer = taskEl.querySelector('.subtasks-container');
       // Проверяем, если есть контейнер сабтасков - находимся ли мы над ним
@@ -2286,5 +2324,8 @@ function initApp() {
 
     return { done, total };
   }
+
+  // Инициализируем обработку touch-событий для drag & drop
+  initTouchDrag();
 }export { initApp };
 
