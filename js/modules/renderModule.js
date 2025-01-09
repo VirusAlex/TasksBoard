@@ -1,14 +1,16 @@
-import * as BoardManager from './boardModule.js';
+import * as BoardModule from './boardModule.js';
 import * as CalendarModule from './calendarModule.js';
 import { getCurrentProvider } from '../data/dataProvider.js';
 
   // Обновляем функцию render
 export async function render() {
+    console.debug('Global render is called');
+
     const boardsEl = document.getElementById('boards');
     const boardTitleEl = document.getElementById('board-title');
     const calendarViewEl = document.getElementById('calendar-view');
 
-    BoardManager.renderBoardsList(boardsEl);
+    await BoardModule.renderBoardsList(boardsEl);
 
     const state = await getCurrentProvider().getData();
 
@@ -19,7 +21,7 @@ export async function render() {
       document.getElementById('calendar-view-content').style.display = 'block';
       boardTitleEl.textContent = 'Календарь';
     } else {
-      await BoardManager.renderBoard();
+      await BoardModule.renderBoard(state.selectedBoardId);
       calendarViewEl?.classList.remove('selected');
       document.getElementById('board-view').style.display = 'block';
       document.getElementById('calendar-view-content').style.display = 'none';

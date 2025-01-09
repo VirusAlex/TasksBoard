@@ -1,6 +1,7 @@
 // Data Provider Interface
 export class DataProvider {
     // Базовые методы для обратной совместимости
+    /** @returns {Promise<AppData>} */
     async getData() {
         throw new Error('Method not implemented');
     }
@@ -18,7 +19,11 @@ export class DataProvider {
         throw new Error('Method not implemented');
     }
 
-    async createBoard(board) {
+    /**
+     * @param {string} name
+     * @returns {Promise<BoardData>}
+     */
+    async createBoard(name) {
         throw new Error('Method not implemented');
     }
 
@@ -30,7 +35,7 @@ export class DataProvider {
         throw new Error('Method not implemented');
     }
 
-    async updateBoardOrder(boardIds) {
+    async updateBoardOrder() {
         throw new Error('Method not implemented');
     }
 
@@ -39,7 +44,12 @@ export class DataProvider {
         throw new Error('Method not implemented');
     }
 
-    async createColumn(column) {
+    /**
+     * @param {string} name
+     * @param {string} boardId
+     * @returns {Promise<ColumnData>}
+     */
+    async createColumn(name, boardId) {
         throw new Error('Method not implemented');
     }
 
@@ -51,12 +61,24 @@ export class DataProvider {
         throw new Error('Method not implemented');
     }
 
-    async updateColumnOrder(boardId, columnIds) {
+    async updateColumnOrder(boardId) {
         throw new Error('Method not implemented');
     }
 
     // Методы для задач
+    /**
+     *  @param {string} columnId
+     *  @returns {Promise<TaskData[]>}
+     **/
     async getTasks(columnId) {
+        throw new Error('Method not implemented');
+    }
+
+    /**
+     * @param {string} parentId
+     * @returns {Promise<TaskData[]>}
+     */
+    async getSubtasks(parentId) {
         throw new Error('Method not implemented');
     }
 
@@ -76,7 +98,7 @@ export class DataProvider {
         throw new Error('Method not implemented');
     }
 
-    async updateTaskOrder(columnId, taskIds) {
+    async updateTaskOrder(columnId) {
         throw new Error('Method not implemented');
     }
 

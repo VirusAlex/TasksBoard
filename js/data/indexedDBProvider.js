@@ -1,14 +1,15 @@
-import { DataProvider } from './dataProvider.js';
+import {DataProvider} from './dataProvider.js';
+import {generateId} from "../utils.js";
 
 export class IndexedDBProvider extends DataProvider {
     constructor() {
         super();
         this.dbName = 'TasksBoard';
-        this.dbVersion = 1;
+        this.dbVersion = 2;
         this.initialized = false;
         this.db = null;
         this.initializationPromise = null;
-        this.cache = null;
+        // this.cache = null;
     }
 
     async initialize() {
@@ -41,7 +42,7 @@ export class IndexedDBProvider extends DataProvider {
             };
 
             request.onupgradeneeded = (event) => {
-                console.log('Upgrading IndexedDB');
+                console.debug('Upgrading IndexedDB');
                 const db = event.target.result;
 
                 // Создаем хранилище для досок
@@ -57,11 +58,18 @@ export class IndexedDBProvider extends DataProvider {
                     columnsStore.createIndex('order', 'order', { unique: false });
                 }
 
+                let tasksStore;
                 // Создаем хранилище для задач
                 if (!db.objectStoreNames.contains('tasks')) {
-                    const tasksStore = db.createObjectStore('tasks', { keyPath: 'id' });
+                    tasksStore = db.createObjectStore('tasks', { keyPath: 'id' });
                     tasksStore.createIndex('columnId', 'columnId', { unique: false });
+                    tasksStore.createIndex('parentId', 'parentId', { unique: false });
                     tasksStore.createIndex('order', 'order', { unique: false });
+                } else {
+                    tasksStore = event.target.transaction.objectStore('tasks');
+                    if (!tasksStore.indexNames.contains('parentId')) {
+                        tasksStore.createIndex('parentId', 'parentId', { unique: false });
+                    }
                 }
 
                 // Создаем хранилище для настроек
@@ -69,7 +77,7 @@ export class IndexedDBProvider extends DataProvider {
                     db.createObjectStore('settings', { keyPath: 'id' });
                 }
 
-                console.log('IndexedDB upgrade completed');
+                console.debug('IndexedDB upgrade completed');
             };
 
             request.onsuccess = (event) => {
@@ -81,12 +89,38 @@ export class IndexedDBProvider extends DataProvider {
     }
 
     // Вспомогательные методы для работы с транзакциями
-    _getStore(storeName, mode = 'readonly') {
+    _getTransaction(storeNames, mode = 'readonly') {
         if (!this.db) {
             throw new Error('Database not initialized');
         }
-        const transaction = this.db.transaction(storeName, mode);
+        return this.db.transaction(storeNames, mode);
+    }
+
+    _getStore(storeName, mode = 'readonly', transaction = null) {
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
+        if (!transaction) {
+            transaction = this.db.transaction([storeName], mode);
+        }
         return transaction.objectStore(storeName);
+    }
+
+    /**
+     * @param {string[]} storeNames
+     * @param {'readonly' | 'readwrite' | 'versionchange'} mode
+     * @param {IDBTransaction | null} transaction
+     */
+    _getStores(storeNames, mode = 'readonly', transaction = null) {
+        if (!this.db) {
+            throw new Error('Database not initialized');
+        }
+        if (!transaction) {
+            transaction = this.db.transaction(storeNames, mode);
+        }
+
+        // getting an object like {boards: IDBObjectStore, columns: IDBObjectStore, tasks: IDBObjectStore}
+        return storeNames.reduce((a, v) => ({...a, [v]: transaction.objectStore(v)}), {});
     }
 
     async _getAllFromStore(store) {
@@ -138,6 +172,11 @@ export class IndexedDBProvider extends DataProvider {
         });
     }
 
+    /**
+     * @param {IDBObjectStore} store
+     * @param {string} key
+     * @returns {Promise<any>}
+     */
     async _getFromStore(store, key) {
         return new Promise((resolve, reject) => {
             const request = store.get(key);
@@ -147,10 +186,11 @@ export class IndexedDBProvider extends DataProvider {
     }
 
     // Базовые методы для обратной совместимости
+    /** @returns {Promise<AppData>} */
     async getData() {
-        if (this.cache) {
-            return this.cache;
-        }
+        // if (this.cache) {
+        //     return this.cache;
+        // }
 
         await this.initialize();
         
@@ -158,48 +198,54 @@ export class IndexedDBProvider extends DataProvider {
             throw new Error('Database not initialized');
         }
 
-        const transaction = this.db.transaction(['boards', 'columns', 'tasks', 'settings'], 'readonly');
-        const boardsStore = transaction.objectStore('boards');
-        const columnsStore = transaction.objectStore('columns');
-        const tasksStore = transaction.objectStore('tasks');
-        const settingsStore = transaction.objectStore('settings');
+        /** @type {IDBObjectStore} */
+        const {boards: boardsStore, columns: columnsStore, tasks: tasksStore, settings: settingsStore} = this._getStores(['boards', 'columns', 'tasks', 'settings']);
 
         try {
             // Получаем настройки
             const settings = await this._getFromStore(settingsStore, 'app');
 
             // Получаем все доски и сортируем по порядку
+            /** @type {BoardData[]} */
             const boards = await this._getAllFromStore(boardsStore);
-            boards.sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
+            boards.sort(sortByOrder);
 
-            // Для каждой доски получаем её колонки и задачи
-            for (const board of boards) {
-                // Получаем колонки для доски и сортируем по порядку
-                const boardIndex = columnsStore.index('boardId');
-                const columns = await this._getFromIndex(columnsStore, 'boardId', board.id);
-                columns.sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
+            // // Для каждой доски получаем её колонки и задачи
+            // for (const board of boards) {
+            //     // Получаем колонки для доски и сортируем по порядку
+            //     const columns = await this._getFromIndex(columnsStore, 'boardId', board.id);
+            //     columns.sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
+            //
+            //     // Для каждой колонки получаем её задачи
+            //     for (const column of columns) {
+            //         const tasks = await this._getFromIndex(tasksStore, 'columnId', column.id);
+            //         // Сортируем задачи по порядку
+            //         tasks.sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
+            //         column.tasks = tasks;
+            //     }
+            //     board.columns = columns;
+            // }
 
-                // Для каждой колонки получаем её задачи
-                for (const column of columns) {
-                    const columnIndex = tasksStore.index('columnId');
-                    const tasks = await this._getFromIndex(tasksStore, 'columnId', column.id);
-                    // Сортируем задачи по порядку
-                    tasks.sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
-                    column.tasks = tasks;
-                }
-                board.columns = columns;
-            }
+            const columns = await this._getAllFromStore(columnsStore);
+            columns.sort(sortByOrder);
 
+            const tasks = await this._getAllFromStore(tasksStore);
+            tasks.sort(sortByOrder);
+
+            /** @type {AppData} */
             const result = {
                 selectedBoardId: settings?.selectedBoardId || null,
                 isCalendarView: settings?.isCalendarView || false,
-                boards: boards
+                boards: boards,
+                columns: columns,
+                tasks: tasks
             };
 
-            // Сохраняем результат в кэш
-            this.cache = result;
-            return this.cache;
+            // // Сохраняем результат в кэш
+            // this.cache = result;
+            // return this.cache;
 
+            return result;
         } catch (error) {
             console.error('Failed to get data from IndexedDB:', error);
             throw error;
@@ -214,10 +260,7 @@ export class IndexedDBProvider extends DataProvider {
         }
 
         const transaction = this.db.transaction(['boards', 'columns', 'tasks', 'settings'], 'readwrite');
-        const boardsStore = transaction.objectStore('boards');
-        const columnsStore = transaction.objectStore('columns');
-        const tasksStore = transaction.objectStore('tasks');
-        const settingsStore = transaction.objectStore('settings');
+        const {boardsStore, columnsStore, tasksStore, settingsStore} = this._getStores(['boards', 'columns', 'tasks', 'settings'], 'readwrite', transaction);
 
         try {
             // Очищаем все хранилища
@@ -280,8 +323,8 @@ export class IndexedDBProvider extends DataProvider {
                 };
             });
 
-            // Очищаем кэш после успешного сохранения
-            await this.invalidateCache();
+            // // Очищаем кэш после успешного сохранения
+            // await this.invalidateCache();
 
         } catch (error) {
             console.error('Failed to save data to IndexedDB:', error);
@@ -290,88 +333,115 @@ export class IndexedDBProvider extends DataProvider {
     }
 
     // Реализация новых методов
+    /** @returns {Promise<BoardData[]>} */
     async getBoards() {
-        if (!this.cache) {
-            await this.getData();
-        }
-        return this.cache.boards;
+        // if (!this.cache) {
+        //     await this.getData();
+        // }
+        // return this.cache.boards;
+
+        /** @type {BoardData[]} */
+        const boards = await this.getData().then(data => data.boards || []);
+        boards.sort(sortByOrder);
+        return boards;
     }
 
-    async createBoard(board) {
+    /**
+     * @param {string} name
+     * @returns {Promise<BoardData>}
+     */
+    async createBoard(name) {
         const store = await this._getStore('boards', 'readwrite');
-        await this._addToStore(store, board);
-        if (this.cache) {
-            if (!this.cache.boards) {
-                this.cache.boards = [];
-            }
-            this.cache.boards.push(board);
-        } else {
-            await this.invalidateCache();
+
+        /** @type {BoardData} */
+        const board = {
+            id: generateId('br'),
+            name: name,
+            order: (await this._getAllFromStore(store)).length
         }
 
+        await this._addToStore(store, board);
         return board;
     }
 
+    /**
+     * @param {string} boardId
+     * @param {Partial<BoardData>} updates
+     * @returns {Promise<BoardData>}
+     */
     async updateBoard(boardId, updates) {
+        if (updates.columns) {
+            throw new Error('Columns cannot be updated directly');
+        }
+
         const store = await this._getStore('boards', 'readwrite');
 
+        /** @type {BoardData | null} */
         const board = await this._getFromStore(store, boardId);
         if (!board) {
             throw new Error('Board not found');
         }
 
+        /** @type {BoardData} */
         const updatedBoard = { ...board, ...updates };
         await this._updateInStore(store, updatedBoard);
 
-        if (this.cache?.boards) {
-            const index = this.cache.boards.findIndex(b => b.id === boardId);
-            if (index !== -1) {
-                this.cache.boards[index] = updatedBoard;
-            }
-        } else {
-            await this.invalidateCache();
-        }
+        // if (this.cache?.boards) {
+        //     const index = this.cache.boards.findIndex(b => b.id === boardId);
+        //     if (index !== -1) {
+        //         this.cache.boards[index] = updatedBoard;
+        //     }
+        // } else {
+        //     await this.invalidateCache();
+        // }
 
         return updatedBoard;
     }
 
+    /**
+     * @param {string} boardId
+     * @returns {Promise<boolean>}
+     */
     async deleteBoard(boardId) {
-        const transaction = this.db.transaction(['boards', 'columns', 'tasks', 'settings'], 'readwrite');
+        const {boards: boardsStore, columns: columnsStore, tasks: tasksStore, settings: settingsStore} = this._getStores(['boards', 'columns', 'tasks', 'settings'], 'readwrite');
 
         try {
             // Удаляем доску
-            await this._deleteFromStore('boards', boardId);
+            await this._deleteFromStore(boardsStore, boardId);
 
             // Находим и удаляем все колонки доски
-            const columns = await this._getFromIndex('columns', 'boardId', boardId);
+            /** @type {ColumnData[]} */
+            const columns = await this._getFromIndex(columnsStore, 'boardId', boardId);
             await Promise.all(columns.map(column =>
-                this._deleteFromStore('columns', column.id)
+                this._deleteFromStore(columnsStore, column.id)
             ));
 
             // Находим и удаляем все задачи из колонок
             await Promise.all(columns.map(async column => {
-                const tasks = await this._getFromIndex('tasks', 'columnId', column.id);
+                /** @type {TaskData[]} */
+                const tasks = await this._getFromIndex(tasksStore, 'columnId', column.id);
                 return Promise.all(tasks.map(task =>
-                    this._deleteFromStore('tasks', task.id)
+                    this._deleteFromStore(tasksStore, task.id)
                 ));
             }));
 
             // Обновляем настройки, если удаляемая доска была выбрана
-            const settings = await this._getStore('settings').get('app');
+            const settings = await this._getFromStore(settingsStore, 'app');
             if (settings?.selectedBoardId === boardId) {
-                const remainingBoards = await this.getBoards();
+                /** @type {BoardData[]} */
+                const remainingBoards = await this._getAllFromStore(boardsStore);
                 settings.selectedBoardId = remainingBoards.length > 0 ? remainingBoards[0].id : null;
-                await this._updateInStore('settings', settings);
+                await this._updateInStore(settingsStore, settings);
             }
 
-            if (this.cache?.boards) {
-                const index = this.cache.boards.findIndex(b => b.id === boardId);
-                if (index !== -1) {
-                    this.cache.boards.splice(index, 1);
-                }
-            } else {
-                await this.invalidateCache();
-            }
+            // if (this.cache?.boards) {
+            //     const index = this.cache.boards.findIndex(b => b.id === boardId);
+            //     if (index !== -1) {
+            //         this.cache.boards.splice(index, 1);
+            //     }
+            // } else {
+            //     await this.invalidateCache();
+            // }
 
             return true;
         } catch (error) {
@@ -380,101 +450,139 @@ export class IndexedDBProvider extends DataProvider {
         }
     }
 
-    async updateBoardOrder(boardIds) {
+    async updateBoardOrder() {
         await this.initialize();
         
         if (!this.db) {
             throw new Error('Database not initialized');
         }
 
-        const transaction = this.db.transaction(['boards'], 'readwrite');
-        const store = transaction.objectStore('boards');
+        const boardsStore = this._getStore('boards', 'readwrite');
 
         try {
-            const boards = await this._getAllFromStore(store);
-            const boardsMap = new Map(boards.map(b => [b.id, b]));
+            /** @type {BoardData[]} */
+            const boards = await this._getAllFromStore(boardsStore);
+            boards.sort(sortByOrder);
 
-            await Promise.all(boardIds.map(async (id, index) => {
-                const board = boardsMap.get(id);
-                if (board) {
-                    board.order = index;
-                    await this._updateInStore(store, board);
-                }
+            await Promise.all(boards.map(async (board, index) => {
+                board.order = index;
+                await this._updateInStore(boardsStore, board);
             }));
 
-            await new Promise((resolve, reject) => {
-                transaction.oncomplete = resolve;
-                transaction.onerror = () => reject(transaction.error);
-            });
-
-            if (this.cache) {
-                this.cache.boards.sort((a, b) => a.order - b.order);
-            }
+            // if (this.cache) {
+            //     this.cache.boards.sort((a, b) => a.order - b.order);
+            // }
         } catch (error) {
             console.error('Failed to update board order:', error);
             throw error;
         }
     }
 
+    /**
+     * @param {string} boardId
+     * @returns {Promise<ColumnData[]>}
+     */
     async getColumns(boardId) {
-        if (!this.cache) {
-            await this.getData();
-        }
-        if (!this.cache.boards) {
-            return [];
-        }
-        const board = this.cache.boards.find(b => b.id === boardId);
-        return board ? board.columns : [];
+        // if (!this.cache) {
+        //     await this.getData();
+        // }
+        // if (!this.cache.boards) {
+        //     return [];
+        // }
+        //
+        // /** @type {BoardData | null} */
+        // const board = this.cache.boards.find(b => b.id === boardId);
+        // return board?.columns || [];
+
+        /** @type {ColumnData[]} */
+        const columns = await this.getData().then(data => (data.columns || []).filter(c => c.boardId === boardId));
+        columns.sort(sortByOrder);
+        return columns;
     }
 
-    async createColumn(column) {
-        const store = await this._getStore('columns', 'readwrite');
-        console.log(column);
-        await this._addToStore(store, column);
-
-        if (this.cache?.boards) {
-            const board = this.cache.boards.find(b => b.id === column.boardId);
-            if (board) {
-                if (!board.columns) {
-                    board.columns = [];
-                }
-                board.columns.push(column);
-            }
-        } else {
-            await this.invalidateCache();
+    /**
+     * @param {string} name
+     * @param {string} boardId
+     * @returns {Promise<ColumnData>}
+     */
+    async createColumn(name, boardId) {
+        if (!name || !boardId) {
+            throw new Error('Name and board ID are required');
         }
 
-        return column;
+        const columnsStore = await this._getStore('columns', 'readwrite');
+        const newColumn = {
+            id: generateId('cl'),
+            name: name,
+            boardId: boardId,
+            order: (await this._getFromIndex(columnsStore, 'boardId', boardId) || []).length
+        }
+
+        await this._addToStore(columnsStore, newColumn);
+
+        // if (this.cache?.boards) {
+        //     const board = this.cache.boards.find(b => b.id === column.boardId);
+        //     if (board) {
+        //         if (!board.columns) {
+        //             board.columns = [];
+        //         }
+        //         board.columns.push(column);
+        //     }
+        // } else {
+        //     await this.invalidateCache();
+        // }
+
+        return newColumn;
     }
 
+    /**
+     * @param {string} columnId
+     * @param {Partial<ColumnData>} updates
+     * @returns {Promise<ColumnData>}
+     */
     async updateColumn(columnId, updates) {
+        if (updates.tasks) {
+            throw new Error('Tasks cannot be updated directly');
+        }
+
         const store = await this._getStore('columns', 'readwrite');
+        /** @type {ColumnData | null} */
         const column = await this._getFromStore(store, columnId);
-        if (!column || !column.id) {
+        if (!column?.id) {
             throw new Error('Column not found: ' + columnId);
         }
+        /** @type {ColumnData} */
         const updatedColumn = { ...column, ...updates };
         await this._updateInStore(store, updatedColumn);
 
-        if (this.cache?.boards) {
-            const board = this.cache.boards.find(b => b.id === updatedColumn.boardId);
-            if (board) {
-                const index = board.columns.findIndex(c => c.id === columnId);
-                if (index !== -1) {
-                    board.columns[index] = updatedColumn;
-                }
-            }
-        } else {
-            await this.invalidateCache();
-        }
+        // if (this.cache?.boards) {
+        //     const board = this.cache.boards.find(b => b.id === updatedColumn.boardId);
+        //     if (board) {
+        //         const index = board.columns.findIndex(c => c.id === columnId);
+        //         if (index !== -1) {
+        //             board.columns[index] = { ...board.columns[index], ...updates };
+        //         } else {
+        //             await this.invalidateCache();
+        //         }
+        //     } else {
+        //         await this.invalidateCache();
+        //     }
+        // } else {
+        //     await this.invalidateCache();
+        // }
 
         return updatedColumn;
     }
 
+    /**
+     * @param {string} columnId
+     * @returns {Promise<boolean>}
+     */
     async deleteColumn(columnId) {
-        const transaction = this.db.transaction(['columns', 'tasks'], 'readwrite');
-        const columnStore = transaction.objectStore('columns');
-        const taskStore = transaction.objectStore('tasks');
+        const {
+            columns: columnStore,
+            tasks: taskStore
+        } = this._getStores(['columns', 'tasks'], 'readwrite');
 
         try {
             // Удаляем колонку
@@ -486,17 +594,17 @@ export class IndexedDBProvider extends DataProvider {
                 this._deleteFromStore(taskStore, task.id)
             ));
 
-            if (this.cache?.boards) {
-                const board = this.cache.boards.find(b => b.columns.some(c => c.id === columnId));
-                if (board) {
-                    const index = board.columns.findIndex(c => c.id === columnId);
-                    if (index !== -1) {
-                        board.columns.splice(index, 1);
-                    }
-                }
-            } else {
-                await this.invalidateCache();
-            }
+            // if (this.cache?.boards) {
+            //     const board = this.cache.boards.find(b => b.columns.some(c => c.id === columnId));
+            //     if (board) {
+            //         const index = board.columns.findIndex(c => c.id === columnId);
+            //         if (index !== -1) {
+            //             board.columns.splice(index, 1);
+            //         }
+            //     }
+            // } else {
+            //     await this.invalidateCache();
+            // }
 
             return true;
         } catch (error) {
@@ -505,42 +613,37 @@ export class IndexedDBProvider extends DataProvider {
         }
     }
 
-    async updateColumnOrder(boardId, columnIds) {
+    /**
+     * @param {string} boardId
+     * @returns {Promise<boolean>}
+     */
+    async updateColumnOrder(boardId) {
         await this.initialize();
         
         if (!this.db) {
             throw new Error('Database not initialized');
         }
 
-        const transaction = this.db.transaction(['columns'], 'readwrite');
-        const store = transaction.objectStore('columns');
+        const columnsStore = this._getStore('columns', 'readwrite');
 
         try {
-            const boardIndex = store.index('boardId');
-            const columns = await this._getFromIndex(store, 'boardId', boardId);
-            const columnsMap = new Map(columns.map(c => [c.id, c]));
+            /** @type {ColumnData[]} */
+            const columns = await this._getFromIndex(columnsStore, 'boardId', boardId);
+            columns.sort(sortByOrder);
 
-            await Promise.all(columnIds.map(async (id, index) => {
-                const column = columnsMap.get(id);
-                if (column) {
-                    column.order = index;
-                    await this._updateInStore(store, column);
-                }
+            await Promise.all(columns.map(async (column, index) => {
+                column.order = index;
+                await this._updateInStore(columnsStore, column);
             }));
 
-            await new Promise((resolve, reject) => {
-                transaction.oncomplete = resolve;
-                transaction.onerror = () => reject(transaction.error);
-            });
-
-            if (this.cache?.boards) {
-                const board = this.cache.boards.find(b => b.id === boardId);
-                if (board) {
-                    board.columns.sort((a, b) => a.order - b.order);
-                }
-            } else {
-                await this.invalidateCache();
-            }
+            // if (this.cache?.boards) {
+            //     const board = this.cache.boards.find(b => b.id === boardId);
+            //     if (board) {
+            //         board.columns.sort((a, b) => a.order - b.order);
+            //     }
+            // } else {
+            //     await this.invalidateCache();
+            // }
 
         } catch (error) {
             console.error('Failed to update column order:', error);
@@ -548,85 +651,140 @@ export class IndexedDBProvider extends DataProvider {
         }
     }
 
+    /**
+     *  @param {string} columnId
+     *  @returns {Promise<TaskData[]>}
+     **/
     async getTasks(columnId) {
-        if (!this.cache) {
-            await this.getData();
-        }
-        if (!this.cache.boards) {
-            return [];
-        }
-        const tasks = this.cache.boards
-            .flatMap(b => b.columns)
-            .find(c => c.id === columnId)?.tasks;
-        return tasks || [];
+        /** @type {TaskData[]} */
+        const tasks = await this.getData().then(data => (data.tasks || []).filter(t => t.columnId === columnId && !t.parentId));
+        tasks.sort(sortByOrder);
+        return tasks;
     }
 
-    async createTask(task) {
-        await this._addToStore('tasks', task);
+    /**
+     * @param {string} parentId
+     * @returns {Promise<TaskData[]>}
+     */
+    async getSubtasks(parentId) {
+        /** @type {TaskData[]} */
+        const tasks = await this.getData().then(data => (data.tasks || []).filter(t => t.parentId === parentId));
+        tasks.sort(sortByOrder);
+        return tasks;
+    }
 
-        if (this.cache?.boards) {
-            const column = this.cache.boards
-                .flatMap(b => b.columns)
-                .find(c => c.id === task.columnId);
-            if (column) {
-                if (!column.tasks) {
-                    column.tasks = [];
-                }
-                column.tasks.push(task);
-            }
-        } else {
-            await this.invalidateCache();
+    /**
+     * @param {TaskData} task
+     * @returns {Promise<TaskData>}
+     */
+    async createTask(task) {
+        if (!task) {
+            throw new Error('Task data is required');
         }
+
+        if (!task.columnId) {
+            throw new Error('Column ID is required for task: ' + JSON.stringify(task));
+        }
+
+        if (task.subtasks) {
+            throw new Error('Subtasks cannot be created directly');
+        }
+
+        const taskStore = await this._getStore('tasks', 'readwrite');
+        await this._addToStore(taskStore, task);
+
+        // if (this.cache?.boards) {
+        //     const column = this.cache.boards
+        //         .flatMap(b => b.columns)
+        //         .find(c => c.id === task.columnId);
+        //     if (column) {
+        //         if (!column.tasks) {
+        //             column.tasks = [];
+        //         }
+        //         column.tasks.push(task);
+        //     } else {
+        //         await this.invalidateCache();
+        //     }
+        // } else {
+        //     await this.invalidateCache();
+        // }
 
         return task;
     }
 
+    /**
+     * @param {string} taskId
+     * @param {Partial<TaskData>} updates
+     * @returns {Promise<TaskData>}
+     */
     async updateTask(taskId, updates) {
-        console.log(taskId, updates, new Error().stack);
+        if (updates.subtasks) {
+            throw new Error('Subtasks cannot be updated directly');
+        }
+
         const taskStore = await this._getStore('tasks', 'readwrite');
+        /** @type {TaskData | null} */
         const task = await this._getFromStore(taskStore, taskId);
         if (!task) {
             throw new Error('Task not found');
         }
-        console.log(task);
+
+        /** @type {TaskData} */
         const updatedTask = { ...task, ...updates };
-        console.log(updatedTask);
         await this._updateInStore(taskStore, updatedTask);
 
-        if (this.cache?.boards) {
-            const column = this.cache.boards
-                .flatMap(b => b.columns)
-                .find(c => c.id === updatedTask.columnId);
-            if (column) {
-                const index = column.tasks.findIndex(t => t.id === taskId);
-                if (index !== -1) {
-                    column.tasks[index] = updatedTask;
-                }
-            }
-        } else {
-            await this.invalidateCache();
-        }
+        // if (this.cache?.boards) {
+        //     const column = this.cache.boards
+        //         .flatMap(b => b.columns)
+        //         .find(c => c.id === updatedTask.columnId);
+        //     if (column) {
+        //         const index = column.tasks.findIndex(t => t.id === taskId);
+        //         if (index !== -1) {
+        //             column.tasks[index] = updatedTask;
+        //         } else {
+        //             column.tasks.push(updatedTask);
+        //         }
+        //     } else {
+        //         await this.invalidateCache();
+        //     }
+        // } else {
+        //     await this.invalidateCache();
+        // }
 
         return updatedTask;
     }
 
+    /**
+     *  @param {string} taskId
+     *  @returns {Promise<boolean>}
+     **/
     async deleteTask(taskId) {
-        try {
-            await this._deleteFromStore('tasks', taskId);
+        if (!taskId) {
+            throw new Error('Task ID is required');
+        }
 
-            if (this.cache?.boards) {
-                const column = this.cache.boards
-                    .flatMap(b => b.columns)
-                    .find(c => c.tasks.some(t => t.id === taskId));
-                if (column) {
-                    const index = column.tasks.findIndex(t => t.id === taskId);
-                    if (index !== -1) {
-                        column.tasks.splice(index, 1);
-                    }
-                }
-            } else {
-                await this.invalidateCache();
-            }
+        const taskStore = await this._getStore('tasks', 'readwrite');
+
+        try {
+            await this._deleteFromStore(taskStore, taskId);
+
+            // if (this.cache?.boards) {
+            //     const column = this.cache.boards
+            //         .flatMap(b => b.columns)
+            //         .find(c => c.tasks.some(t => t.id === taskId));
+            //     if (column) {
+            //         const index = column.tasks.findIndex(t => t.id === taskId);
+            //         if (index !== -1) {
+            //             column.tasks.splice(index, 1);
+            //         } else {
+            //             await this.invalidateCache();
+            //         }
+            //     } else {
+            //         await this.invalidateCache();
+            //     }
+            // } else {
+            //     await this.invalidateCache();
+            // }
 
             return true;
         } catch (error) {
@@ -635,64 +793,77 @@ export class IndexedDBProvider extends DataProvider {
         }
     }
 
-    async moveTask(taskId, newColumnId, newOrder) {
-        const transaction = this.db.transaction(['tasks'], 'readwrite');
-        const store = transaction.objectStore('tasks');
+    /**
+     * @param {string} taskId
+     * @param {string} newColumnId
+     * @param {number} newOrder
+     * @param {string} newParentId
+     * @returns {Promise<TaskData>}
+     */
+    async moveTask(taskId, newColumnId, newOrder, newParentId) {
+        const taskStore = await this._getStore('tasks', 'readwrite');
 
         try {
             // Получаем задачу и все задачи в новой колонке
-            const task = await this._getStore('tasks').get(taskId);
+            /** @type {TaskData | null} */
+            const task = await this._getFromStore(taskStore, taskId);
             if (!task) {
                 throw new Error('Task not found');
             }
 
             const oldColumnId = task.columnId;
-            const [oldColumnTasks, newColumnTasks] = await Promise.all([
-                this._getFromIndex('tasks', 'columnId', oldColumnId),
-                this._getFromIndex('tasks', 'columnId', newColumnId)
-            ]);
+            /** @type {TaskData[]} */
+            const oldColumnTasks = await this._getFromIndex(taskStore, 'columnId', oldColumnId) || [];
+            oldColumnTasks.sort(sortByOrder);
+            /** @type {TaskData[]} */
+            const newColumnTasks = await this._getFromIndex(taskStore, 'columnId', newColumnId) || [];
+            newColumnTasks.sort(sortByOrder);
 
             // Обновляем порядок в старой колонке
+            /** @type {TaskData[]} */
             const remainingTasks = oldColumnTasks.filter(t => t.id !== taskId);
+
             await Promise.all(remainingTasks.map((t, index) => {
                 t.order = index;
-                return this._updateInStore('tasks', t);
+                return this._updateInStore(taskStore, t);
             }));
 
             // Обновляем задачу и вставляем её в новую позицию
             task.columnId = newColumnId;
             task.order = newOrder;
-            await this._updateInStore('tasks', task);
+            await this._updateInStore(taskStore, task);
 
             // Обновляем порядок в новой колонке
             const tasksToUpdate = newColumnTasks.filter(t => t.id !== taskId && t.order >= newOrder);
             await Promise.all(tasksToUpdate.map(t => {
                 t.order = t.order + 1;
-                return this._updateInStore('tasks', t);
+                return this._updateInStore(taskStore, t);
             }));
 
-            if (this.cache?.boards) {
-                const oldColumn = this.cache.boards
-                    .flatMap(b => b.columns)
-                    .find(c => c.id === oldColumnId);
-                const newColumn = this.cache.boards
-                    .flatMap(b => b.columns)
-                    .find(c => c.id === newColumnId);
-                if (oldColumn && newColumn) {
-                    const oldIndex = oldColumn.tasks.findIndex(t => t.id === taskId);
-                    const newIndex = newColumn.tasks.findIndex(t => t.id === taskId);
-                    if (oldIndex !== -1) {
-                        oldColumn.tasks.splice(oldIndex, 1);
-                    }
-                    if (newIndex === -1) {
-                        newColumn.tasks.splice(newOrder, 0, task);
-                    } else {
-                        newColumn.tasks[newIndex] = task;
-                    }
-                }
-            } else {
-                await this.invalidateCache();
-            }
+            // if (this.cache?.boards) {
+            //     const oldColumn = this.cache.boards
+            //         .flatMap(b => b.columns)
+            //         .find(c => c.id === oldColumnId);
+            //     const newColumn = this.cache.boards
+            //         .flatMap(b => b.columns)
+            //         .find(c => c.id === newColumnId);
+            //     if (oldColumn && newColumn) {
+            //         const oldIndex = oldColumn.tasks.findIndex(t => t.id === taskId);
+            //         const newIndex = newColumn.tasks.findIndex(t => t.id === taskId);
+            //         if (oldIndex !== -1) {
+            //             oldColumn.tasks.splice(oldIndex, 1);
+            //         }
+            //         if (newIndex === -1) {
+            //             newColumn.tasks.splice(newOrder, 0, task);
+            //         } else {
+            //             newColumn.tasks[newIndex] = task;
+            //         }
+            //     } else {
+            //         await this.invalidateCache();
+            //     }
+            // } else {
+            //     await this.invalidateCache();
+            // }
 
             return task;
         } catch (error) {
@@ -701,86 +872,98 @@ export class IndexedDBProvider extends DataProvider {
         }
     }
 
-    async updateTaskOrder(columnId, taskIds) {
+    /**
+     * @param {string} columnId
+     */
+    async updateTaskOrder(columnId) {
         await this.initialize();
         
         if (!this.db) {
             throw new Error('Database not initialized');
         }
 
-        const transaction = this.db.transaction(['tasks'], 'readwrite');
-        const store = transaction.objectStore('tasks');
+        const taskStore = this._getStore('tasks', 'readwrite');
 
         try {
-            const columnIndex = store.index('columnId');
-            const tasks = await this._getFromIndex(store, 'columnId', columnId);
-            const tasksMap = new Map(tasks.map(t => [t.id, t]));
+            /** @type {TaskData[]} */
+            const tasks = await this._getFromIndex(taskStore, 'columnId', columnId);
+            tasks.sort(sortByOrder);
 
-            await Promise.all(taskIds.map(async (id, index) => {
-                const task = tasksMap.get(id);
-                if (task) {
-                    task.order = index;
-                    await this._updateInStore(store, task);
-                }
+            await Promise.all(tasks.map(async (task, index) => {
+                task.order = index;
+                await this._updateInStore(taskStore, task);
             }));
 
-            await new Promise((resolve, reject) => {
-                transaction.oncomplete = resolve;
-                transaction.onerror = () => reject(transaction.error);
-            });
-
-            if (this.cache?.boards) {
-                const column = this.cache.boards
-                    .flatMap(b => b.columns)
-                    .find(c => c.id === columnId);
-                if (column) {
-                    column.tasks.sort((a, b) => a.order - b.order);
-                }
-            } else {
-                await this.invalidateCache();
-            }
-
-            await this.invalidateCache();
+            // if (this.cache?.boards) {
+            //     const column = this.cache.boards
+            //         .flatMap(b => b.columns)
+            //         .find(c => c.id === columnId);
+            //     if (column) {
+            //         column.tasks.sort((a, b) => a.order - b.order);
+            //     }
+            // } else {
+            //     await this.invalidateCache();
+            // }
+            //
+            // await this.invalidateCache();
         } catch (error) {
             console.error('Failed to update task order:', error);
             throw error;
         }
     }
 
+
+    /**
+     * @returns {Promise<AppSettings>}
+     */
     async getSettings() {
-        if (!this.cache) {
-            await this.getData();
-        }
-        return {
-            selectedBoardId: this.cache.selectedBoardId,
-            isCalendarView: this.cache.isCalendarView
-        };
+        // if (!this.cache) {
+        //     await this.getData();
+        // }
+        // return {
+        //     selectedBoardId: this.cache.selectedBoardId,
+        //     isCalendarView: this.cache.isCalendarView
+        // };
+
+        return this.getData().then(data => ({
+            selectedBoardId: data.selectedBoardId,
+            isCalendarView: data.isCalendarView
+        }));
     }
 
+    /**
+     * @param {Partial<AppSettings>} settings
+     * @returns {Promise<AppSettings>}
+     */
     async updateSettings(settings) {
+        /** @type {AppSettings} */
         const updatedSettings = { id: 'app', ...settings };
 
-        const transaction = this.db.transaction(['settings'], 'readwrite');
-        const store = transaction.objectStore('settings');
+        const settingsStore = await this._getStore('settings', 'readwrite');
 
+        await this._updateInStore(settingsStore, updatedSettings);
 
-        await this._updateInStore(store, updatedSettings);
-
-        if (this.cache) {
-            this.cache.selectedBoardId = settings.selectedBoardId;
-            this.cache.isCalendarView = settings.isCalendarView;
-        } else {
-            await this.invalidateCache();
-        }
+        // if (this.cache) {
+        //     this.cache.selectedBoardId = settings.selectedBoardId;
+        //     this.cache.isCalendarView = settings.isCalendarView;
+        // } else {
+        //     await this.invalidateCache();
+        // }
 
         return updatedSettings;
     }
 
     async invalidateCache() {
-        this.cache = null;
+        // this.cache = null;
+        throw new Error('Not implemented');
     }
 
     async clearCache() {
-        await this.invalidateCache();
+        // await this.invalidateCache();
+        throw new Error('Not implemented');
     }
-} 
+}
+
+function sortByOrder(a, b) {
+    return (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER);
+}

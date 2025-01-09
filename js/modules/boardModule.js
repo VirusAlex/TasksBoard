@@ -1,25 +1,38 @@
 // Модуль для работы с досками
-import { generateId } from '../utils.js';
 import { showConfirmDialog } from './uiComponents.js';
 import * as RenderModule from './renderModule.js';
 import * as DragDrop from './dragAndDrop.js';
 import * as ColumnModule from './columnModule.js';
 import { getCurrentProvider } from '../data/dataProvider.js';
+import './types.js';
 
 const boardTitleEl = document.getElementById('board-title');
-const columnsEl = document.getElementById('columns');
+const columnsContainerEl = document.getElementById('columns');
 
 // Сохраняем ссылки на обработчики событий
 let currentBoardTitleHandler = null;
 let currentColumnsDragOverHandler = null;
 let currentColumnsDropHandler = null;
 
-export async function renderBoard() {
+export async function initBoardModule() {
+    /** @type {AppData} */
+    const data = await getCurrentProvider().getData();
+    if (data?.boards?.length === 0) {
+        // Создаем доску по умолчанию, если нет сохраненных досок
+        await createBoard('Моя первая доска');
+    }
+}
+
+/**
+ * @param {string} selectedBoardId
+ */
+export async function renderBoard(selectedBoardId) {
+    console.debug('Render board is called: ', selectedBoardId);
+
     const board = await getSelectedBoard();
-    console.log(board);
     if (!board) {
         boardTitleEl.textContent = 'Выберите доску или создайте новую';
-        columnsEl.innerHTML = '';
+        columnsContainerEl.innerHTML = '';
         return;
     }
 
@@ -28,10 +41,10 @@ export async function renderBoard() {
         boardTitleEl.removeEventListener('dblclick', currentBoardTitleHandler);
     }
     if (currentColumnsDragOverHandler) {
-        columnsEl.removeEventListener('dragover', currentColumnsDragOverHandler);
+        columnsContainerEl.removeEventListener('dragover', currentColumnsDragOverHandler);
     }
     if (currentColumnsDropHandler) {
-        columnsEl.removeEventListener('drop', currentColumnsDropHandler);
+        columnsContainerEl.removeEventListener('drop', currentColumnsDropHandler);
     }
 
     // Делаем заголовок доски редактируемым
@@ -45,7 +58,7 @@ export async function renderBoard() {
     };
     boardTitleEl.addEventListener('dblclick', currentBoardTitleHandler);
 
-    columnsEl.innerHTML = '';
+    columnsContainerEl.innerHTML = '';
 
     // Создаем новые обработчики для drag & drop
     currentColumnsDragOverHandler = (e) => {
@@ -60,99 +73,56 @@ export async function renderBoard() {
         DragDrop.handleColumnDrop(e);
     };
 
-    columnsEl.addEventListener('dragover', currentColumnsDragOverHandler);
-    columnsEl.addEventListener('drop', currentColumnsDropHandler);
+    columnsContainerEl.addEventListener('dragover', currentColumnsDragOverHandler);
+    columnsContainerEl.addEventListener('drop', currentColumnsDropHandler);
 
     // Сортируем колонки по полю order перед отображением
-    const sortedColumns = [...(board.columns || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    
-    sortedColumns.forEach(async column => {
-        const columnElement = await ColumnModule.renderColumn(column);
-        
-        // Добавляем обработчики drag & drop для колонки
-        columnElement.addEventListener('dragover', (e) => {
-            const draggingTask = document.querySelector('.task.dragging');
-            const draggingCol = document.querySelector('.column.dragging');
-            if (!draggingTask && !draggingCol) return;
+    getCurrentProvider().getColumns(board.id).then(async boardColumns => {
+        /** @type {ColumnData[]} */
+        const sortedColumns = (boardColumns || []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-            if (draggingTask) {
-                DragDrop.showTaskDropIndicator(e, columnElement, draggingTask);
-            } else {
-                if (draggingCol === columnElement) return;
-                DragDrop.showColumnDropIndicator(e, draggingCol);
-            }
-        });
-
-        columnElement.addEventListener('drop', (e) => {
-            const draggingTask = document.querySelector('.task.dragging');
-            const draggingCol = document.querySelector('.column.dragging');
-            if (!draggingTask && !draggingCol) return;
-
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (draggingTask) {
-                DragDrop.handleTaskDrop(e, columnElement);
-            } else {
-                DragDrop.handleColumnDrop(e);
-            }
-        });
-
-        columnsEl.appendChild(columnElement);
+        await Promise.all(sortedColumns.map(async column => {
+            // Создаем колонку
+            const columnElement = await ColumnModule.renderColumn(column);
+            columnsContainerEl.appendChild(columnElement);
+        }));
     });
 }
 
 // Базовые операции с досками
-export async function createBoard(boardData) {
-    const boards = await getCurrentProvider().getBoards().catch(console.error);
-    const newBoard = {
-        id: generateId(),
-        name: boardData.name,
-        columns: [],
-        order: boards.length // Новая доска добавляется в конец
-    };
-
-    await getCurrentProvider().createBoard(newBoard).catch(console.error);
+/**
+ * @param {string} name
+ * @returns {Promise<BoardData>}
+ */
+export async function createBoard(name) {
+    /** @type {BoardData} */
+    const newBoard = await getCurrentProvider().createBoard(name);
     await getCurrentProvider().updateSettings({ selectedBoardId: newBoard.id }).catch(console.error);
-
-    await RenderModule.render();
-
     return newBoard;
 }
 
-export async function updateBoard(boardId, boardData) {
-    const boards = await getCurrentProvider().getBoards();
-    console.log(boards);
-    const board = boards.find(b => b.id === boardId);
-    if (board) {
-        Object.assign(board, boardData);
-        // Используем специальный метод для обновления доски
-        await getCurrentProvider().updateBoard(boardId, boardData)
-            .catch(console.error);
-    }
-    await RenderModule.render();
-    return board;
-}
-
+/** @param {string} boardId */
 export async function deleteBoard(boardId) {
     await getCurrentProvider().deleteBoard(boardId)
         .then(() => {
             // После успешного удаления обновляем порядок оставшихся досок
-            return getCurrentProvider().updateBoardOrder(state.boards.map(b => b.id));
+            return getCurrentProvider().updateBoardOrder();
         })
         .catch(console.error);
-
-    await RenderModule.render();
-
-    return true;
 }
 
 // Функции для работы с выбранной доской
+/**
+ * @returns {Promise<BoardData | null>}
+ */
 export async function getSelectedBoard() {
+    /** @type {AppData} */
     const data = await getCurrentProvider().getData();
-    return data.boards.find(b => b.id === data.selectedBoardId);
+    if (!data?.selectedBoardId) return null
+    return (data.boards || []).find(b => b.id === data.selectedBoardId) || null;
 }
 
+/** @param {string} boardId */
 export async function setSelectedBoard(boardId) {
     await getCurrentProvider().updateSettings({
         selectedBoardId: boardId,
@@ -164,13 +134,17 @@ export async function setSelectedBoard(boardId) {
 
 // Функции рендеринга
 export async function renderBoardsList(boardsElement) {
-    const state = await getCurrentProvider().getData().catch(console.error);
+    /** @type {AppData} */
+    const state = await getCurrentProvider().getData();
+    if (!state) return;
+
     boardsElement.innerHTML = '';
 
     // Сортируем доски по полю order перед отображением
-    const sortedBoards = [...state.boards].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    /** @type {BoardData[]} */
+    const sortedBoards = (state.boards || []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    sortedBoards.forEach(board => {
+    for (const board of sortedBoards) {
         const li = document.createElement('li');
         li.textContent = board.name;
         li.dataset.boardId = board.id;
@@ -180,10 +154,11 @@ export async function renderBoardsList(boardsElement) {
         }
 
         boardsElement.appendChild(li);
-    });
+    }
 }
 
 // Диалог для работы с доской
+/** @param {BoardData | null} existingBoard */
 export function openBoardDialog(existingBoard = null) {
     const dialog = document.getElementById('board-dialog');
     const form = dialog.querySelector('form');
@@ -210,6 +185,7 @@ export function openBoardDialog(existingBoard = null) {
         );
         if (confirmed) {
             await deleteBoard(existingBoard.id);
+            await RenderModule.render();
             dialog.close('deleted');
             return true;
         }
@@ -222,23 +198,24 @@ export function openBoardDialog(existingBoard = null) {
         if (!name) return;
 
         if (existingBoard) {
-            await updateBoard(existingBoard.id, { name });
+            await getCurrentProvider().updateBoard(existingBoard.id, { name: name });
+            const boardTitleEl = document.getElementById('board-title');
+            if (boardTitleEl) boardTitleEl.textContent = name;
         } else {
-            await createBoard({ name });
+            await createBoard(name);
+            await RenderModule.render();
         }
 
         dialog.close('submit');
     };
 
-    const handleClose = () => {
+    const handleClose = async () => {
         // Удаляем все обработчики
         form.removeEventListener('submit', handleSubmit);
         if (existingBoard) {
             deleteBtn.removeEventListener('click', handleDelete);
         }
         dialog.removeEventListener('close', handleClose);
-
-        RenderModule.render();
     };
 
     // Добавляем обработчики

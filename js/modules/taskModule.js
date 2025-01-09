@@ -1,21 +1,26 @@
-import { generateId, formatDateTime, formatTimeLeft, formatDeadlineTime } from '../utils.js';
-import { showConfirmDialog, renderLinkedText, hexToRGB, updateLineNumbers } from './uiComponents.js';
+import {generateId, formatDateTime, formatTimeLeft, formatDeadlineTime} from '../utils.js';
+import {showConfirmDialog, renderLinkedText, hexToRGB, updateLineNumbers} from './uiComponents.js';
 import * as BoardModule from './boardModule.js';
 import * as RenderModule from './renderModule.js';
 import * as DragDrop from './dragAndDrop.js';
-import { getCurrentProvider } from '../data/dataProvider.js';
+import * as ColumnModule from './columnModule.js';
+import {getCurrentProvider} from '../data/dataProvider.js';
+import './types.js';
 
 // Сохраняем ссылки на обработчики событий для каждой задачи
 const taskHandlers = new Map();
 
 // Функция для очистки обработчиков задачи
+/** @param {string} taskId */
 function cleanupTaskHandlers(taskId) {
+    if (!taskId) return;
+
     const handlers = taskHandlers.get(taskId);
     if (handlers) {
-        const { taskEl } = handlers.elements;
-        const { 
-            dblClickHandler, 
-            dragStartHandler, 
+        const {taskEl} = handlers.elements;
+        const {
+            dblClickHandler,
+            dragStartHandler,
             dragEndHandler,
             dragOverHandler,
             dropHandler,
@@ -30,7 +35,7 @@ function cleanupTaskHandlers(taskId) {
             taskEl.removeEventListener('dragover', dragOverHandler);
             taskEl.removeEventListener('drop', dropHandler);
 
-            const checkbox = taskEl.querySelector('input[type="checkbox"]');
+            const checkbox = Array.from(taskEl.querySelectorAll('input[type="checkbox"]')).find(el => el.closest('.task') === taskEl);
             if (checkbox) {
                 checkbox.removeEventListener('change', checkboxChangeHandler);
             }
@@ -41,132 +46,29 @@ function cleanupTaskHandlers(taskId) {
     }
 }
 
-// Базовые операции с задачами
-export function createTask(columnId, taskData) {
-    const board = BoardModule.getSelectedBoard();
-    if (!board) return null;
-
-    const column = board.columns.find(c => c.id === columnId);
-    if (!column) return null;
-
-    const newTask = {
-        id: generateId(),
-        title: taskData.title,
-        description: taskData.description || '',
-        done: false,
-        doneDate: null,
-        ...taskData
-    };
-
-    column.tasks.push(newTask);
-    return newTask;
-}
-
-export function updateTask(taskId, taskData) {
-    const task = findTaskById(taskId);
-    if (task) {
-        Object.assign(task, taskData);
-    }
-    return task;
-}
-
-export function deleteTask(taskId) {
-    const board = BoardModule.getSelectedBoard();
+/** @param {string} taskId */
+export async function deleteTask(taskId) {
+    const board = await BoardModule.getSelectedBoard();
     if (!board) return false;
 
-    for (const column of board.columns) {
-        const taskIndex = column.tasks.findIndex(t => t.id === taskId);
-        if (taskIndex !== -1) {
-            column.tasks.splice(taskIndex, 1);
-            return true;
-        }
-    }
-    return false;
+    return await getCurrentProvider().deleteTask(taskId);
 }
 
 // Функции для работы с сабтасками
+/**
+ * @param taskId
+ * @returns {Promise<TaskData | null>}
+ */
 export async function findTaskById(taskId) {
-    const board = await BoardModule.getSelectedBoard();
-    if (!board) return null;
-
-    // Создаем плоский массив всех задач
-    const allTasks = [];
-
-    // Собираем все задачи из всех колонок
-    for (const column of board.columns) {
-        for (const task of column.tasks) {
-            allTasks.push(task);
-            if (task.subtasks && task.subtasks.length > 0) {
-                collectSubtasks(task, allTasks);
-            }
-        }
-    }
-
-    return allTasks.find(task => task.id === taskId);
-}
-
-export function collectSubtasks(parentTask, tasksArray) {
-    if (!parentTask.subtasks) return;
-
-    for (const subtaskId of parentTask.subtasks) {
-        // Ищем сабтаск в существующем массиве задач
-        const subtask = tasksArray.find(t => t.id === subtaskId);
-        if (subtask) {
-            if (!tasksArray.includes(subtask)) {
-                tasksArray.push(subtask);
-            }
-            // Рекурсивно собираем сабтаски текущего сабтаска
-            if (subtask.subtasks && subtask.subtasks.length > 0) {
-                collectSubtasks(subtask, tasksArray);
-            }
-        }
-    }
-}
-
-export async function makeSubtask(taskId, parentId) {
-    const parentTask = await findTaskById(parentId);
-
-    await getCurrentProvider().updateTask(taskId, { parentId: parentId });
-    await getCurrentProvider().updateTask(parentId, { subtasks: [...(parentTask.subtasks || []), taskId] });
-
-    await RenderModule.render();
-  }
-
-export async function isTaskAncestor(taskId, possibleAncestorId) {
-    const task = await findTaskById(taskId);
-    if (!task || !task.parentId) return false;
-    if (task.parentId === possibleAncestorId) return true;
-    return await isTaskAncestor(task.parentId, possibleAncestorId);
-}
-
-export async function removeTaskFromCurrentPosition(task) {
-    if (!task) return;
-
-    const board = await BoardModule.getSelectedBoard();
-    if (!board) return;
-
-    // Если это сабтаск, удаляем из родителя
-    if (task.parentId) {
-        const parentTask = await findTaskById(task.parentId);
-        if (parentTask && parentTask.subtasks) {
-            parentTask.subtasks = parentTask.subtasks.filter(id => id !== task.id);
-        }
-    }
-
-    // Удаляем из колонки
-    for (const column of board.columns) {
-        const index = column.tasks.findIndex(t => t.id === task.id);
-        if (index !== -1) {
-            column.tasks.splice(index, 1);
-            break;
-        }
-    }
+    return await getCurrentProvider().getData().then(data => {
+        return data.tasks.find(task => task.id === taskId) || null;
+    });
 }
 
 // Функция для добавления обработчиков drag & drop
-export function addTaskDragHandlers(taskEl) {
+export function addTaskHandlers(taskEl) {
     const taskId = taskEl.dataset.taskId;
-    
+
     // Очищаем старые обработчики для этой задачи
     cleanupTaskHandlers(taskId);
 
@@ -178,6 +80,7 @@ export function addTaskDragHandlers(taskEl) {
 
     const dragEndHandler = (e) => {
         e.stopPropagation();
+        if (DragDrop.isProcessingDrop) return;
         taskEl.classList.remove('dragging');
         DragDrop.removeAllDropIndicators();
     };
@@ -188,27 +91,24 @@ export function addTaskDragHandlers(taskEl) {
         DragDrop.showTaskDropIndicator(e, taskEl, draggingTask);
     };
 
-    const dropHandler = (e) => {
-        DragDrop.handleTaskDrop(e, taskEl);
+    const dropHandler = async (e) => {
+        await DragDrop.handleTaskDrop(e, taskEl);
     };
 
     const dblClickHandler = async (e) => {
         e.stopPropagation();
 
-        const task = findTaskById(taskEl.dataset.taskId);
-        if (task) {
-            // Находим колонку, в которой находится задача (или её родитель, если это сабтаск)
-            const column = BoardModule.getSelectedBoard().columns.find(col => {
-                return col.tasks.some(t => {
-                    if (t.id === task.id) return true; // Сама задача в колонке
-                    return !!(task.parentId && t.id === task.parentId);
-                });
-            });
+        /** @type {TaskData | null} */
+        const task = await findTaskById(taskEl.dataset.taskId);
+        if (!task) throw new Error('Task not found: ' + taskEl.dataset.taskId);
 
-            if (column) {
-                openTaskDialog(column, task);
-            }
-        }
+        const columnEl = taskEl.closest('.column');
+        const columnId = columnEl.dataset.columnId;
+        /** @type {ColumnData | null} */
+        const column = await ColumnModule.findColumnById(columnId);
+        if (!column) throw new Error('Column not found: ' + columnId);
+
+        await openTaskDialog(column, task);
     };
 
     // Добавляем обработчики
@@ -220,57 +120,25 @@ export function addTaskDragHandlers(taskEl) {
 
     // Сохраняем ссылки на обработчики
     taskHandlers.set(taskId, {
-        elements: { taskEl },
+        elements: {taskEl},
         dragStartHandler,
         dragEndHandler,
         dragOverHandler,
         dropHandler,
         dblClickHandler
     });
-
-    // Добавляем обработчик для чекбокса, если он есть
-    const checkbox = taskEl.querySelector('input[type="checkbox"]');
-    if (checkbox) {
-        const checkboxChangeHandler = async () => {
-            const task = findTaskById(taskId);
-            if (task) {
-                task.done = checkbox.checked;
-                if (checkbox.checked) {
-                    task.doneDate = new Date().toISOString();
-                } else {
-                    task.doneDate = null;
-                }
-                await getCurrentProvider().updateTask(taskId, { done: task.done, doneDate: task.doneDate });
-                await RenderModule.render();
-            }
-        };
-
-        checkbox.addEventListener('change', checkboxChangeHandler);
-        
-        // Добавляем обработчик в сохраненные
-        const handlers = taskHandlers.get(taskId);
-        if (handlers) {
-            handlers.checkboxChangeHandler = checkboxChangeHandler;
-        }
-    }
 }
 
 // Функция рендеринга задачи
+/**
+ * @param {TaskData} task
+ * @param {HTMLElement} container
+ */
 export async function renderTask(task, container) {
+    cleanupTaskHandlers(task.id);
+
     const taskEl = document.createElement('div');
     taskEl.className = 'task' + (task.done ? ' done' : '') + (task.parentId ? ' subtask' : '') + (task.isInfo ? ' info' : '');
-
-    // Добавляем класс для пульсации, если есть дедлайн и он скоро
-    if (!task.done && task.deadline) {
-        const deadline = new Date(task.deadline);
-        const now = new Date();
-        const diff = deadline - now;
-        const hourInMs = 60 * 60 * 1000;
-
-        if (diff < hourInMs || diff < 0) {
-            taskEl.classList.add('deadline-warning');
-        }
-    }
 
     taskEl.draggable = true;
     taskEl.dataset.taskId = task.id;
@@ -278,6 +146,186 @@ export async function renderTask(task, container) {
     // Создаем header задачи
     const taskHeader = document.createElement('div');
     taskHeader.className = 'task-header';
+    taskEl.appendChild(taskHeader);
+
+    // Добавляем чекбокс
+    updateTaskCheckbox(task, taskEl);
+
+    // Добавляем контент задачи
+    const taskContent = document.createElement('div');
+    taskContent.className = 'task-content';
+    taskHeader.appendChild(taskContent);
+
+    // Заголовок
+    const title = document.createElement('div');
+    renderLinkedText(title, task.title, 'task-title');
+    taskContent.appendChild(title);
+
+    // Описание
+    if (task.description) {
+        const descEl = document.createElement('div');
+        renderLinkedText(descEl, task.description, 'task-description');
+        taskContent.appendChild(descEl);
+    }
+
+    // Добавляем иконку повторения и информацию о сбросе
+    if (task.repeating) {
+        const repeatIcon = document.createElement('div');
+        repeatIcon.className = 'task-repeat-icon';
+        repeatIcon.innerHTML = '🔄';
+        repeatIcon.title = 'Повторяющаяся задача';
+        taskEl.appendChild(repeatIcon);
+    }
+
+    container.appendChild(taskEl);
+
+    getCurrentProvider().getSubtasks(task.id).then(subtasks => {
+        // Добавляем контейнер для сабтасков, если они есть
+        if (subtasks?.length > 0) {
+            const subtasksContainer = document.createElement('div');
+            subtasksContainer.className = 'subtasks-container';
+
+            // Рендерим каждый сабтаск внутри контейнера
+            for (const subtask of subtasks) {
+                renderTask(subtask, subtasksContainer);
+            }
+
+            taskEl.appendChild(subtasksContainer);
+
+            // Если есть сабтаски, добавляем кнопку сворачивания
+            const expandToggle = document.createElement('div'); // меняем span на div
+            expandToggle.className = 'task-expand-toggle';
+            taskEl.appendChild(expandToggle);
+
+            if (task.collapsed) {
+                expandToggle.classList.add('collapsed');
+            }
+
+            // Добавляем пустой элемент для первой колонки грида
+            const spacerLeft = document.createElement('div');
+            expandToggle.appendChild(spacerLeft);
+
+            // Добавляем контейнер для стрелки
+            const toggleArrow = document.createElement('span');
+            toggleArrow.className = 'toggle-arrow';
+            expandToggle.appendChild(toggleArrow);
+
+            const statsEl = document.createElement('div');
+            statsEl.classList.add('subtasks-stats', 'empty');
+            expandToggle.appendChild(statsEl);
+
+            // Добавляем статистику
+            updateSubtasksStats(task.id);
+
+            expandToggle.onclick = (e) => {
+                e.stopPropagation();
+                const subtasksContainer = Array.from(taskEl.querySelectorAll('.subtasks-container')).find(el => el.closest('.task') === taskEl);
+                if (subtasksContainer) {
+                    const isExpanded = !expandToggle.classList.contains('collapsed');
+                    expandToggle.classList.toggle('collapsed');
+                    subtasksContainer.style.display = isExpanded ? 'none' : 'block';
+
+                    // Сохраняем состояние
+                    getCurrentProvider().updateTask(task.id, {collapsed: isExpanded});
+                }
+            };
+
+            // Устанавливаем начальное состояние контейнера сабтасков
+            if (subtasksContainer && task.collapsed) {
+                subtasksContainer.style.display = 'none';
+            }
+        }
+    });
+
+    // Добавляем индикаторы времени
+    fillTimeIndicators(task, taskEl);
+    updateTaskColors(task, taskEl);
+
+    // Добавляем обработчики событий
+    addTaskHandlers(taskEl);
+
+    return taskEl;
+}
+
+async function updateSubtasksStats(taskId) {
+    if (!taskId) return;
+
+    const taskEl = document.querySelector(`.task[data-task-id="${taskId}"]`);
+    if (!taskEl) return;
+
+    let statsEl = Array.from(taskEl.querySelectorAll('.subtasks-stats')).find(el => el.closest('.task') === taskEl);
+    if (!statsEl) return;
+
+    /** @type {TaskData[]} */
+    const subtasks = await getCurrentProvider().getSubtasks(taskId);
+    const stats = countSubtasksStats(subtasks);
+    if (stats.total > 0) {
+        statsEl.classList.remove('empty');
+            statsEl.innerHTML = `
+        <span class="stats-done">${stats.done}</span>
+        <span class="stats-separator">/</span>
+        <span class="stats-total">${stats.total}</span>
+        `;
+    } else {
+        statsEl.classList.add('empty');
+    }
+}
+
+function updateTaskCheckbox(task, taskEl) {
+    if (!task) return;
+    if (!taskEl) return;
+
+    const taskHeader = Array.from(taskEl.querySelectorAll('.task-header')).find(el => el.closest('.task') === taskEl);
+    if (!taskHeader) return;
+
+    const handlers = taskHandlers.get(task.id);
+
+    let checkbox = taskHeader.querySelector('input[type="checkbox"]');
+    if (task.isInfo && checkbox) {
+        if (handlers) {
+            checkbox.removeEventListener('change', handlers.checkboxChangeHandler);
+            handlers.checkboxChangeHandler = null;
+        }
+        checkbox.remove();
+    } else if (!task.isInfo) {
+        if (!checkbox) {
+            checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.onclick = (e) => e.stopPropagation();
+            taskHeader.prepend(checkbox);
+
+            const checkboxChangeHandler = async () => {
+                /** @type {TaskData} */
+                const updates = {
+                    done: checkbox.checked,
+                    doneDate: checkbox.checked ? new Date().toISOString() : null
+                };
+
+                const updatedTask = await getCurrentProvider().updateTask(task.id, updates);
+                await rerenderTask(updatedTask)
+
+                // обновляем статистику в родительской задаче или в колонке
+                await updateSubtasksStats(updatedTask.parentId);
+            };
+
+            checkbox.addEventListener('change', checkboxChangeHandler);
+
+            // Добавляем обработчик в сохраненные
+            if (handlers) {
+                handlers.checkboxChangeHandler = checkboxChangeHandler;
+            }
+        }
+        checkbox.checked = task.done;
+    }
+}
+
+/**
+ * @param {TaskData} task
+ * @param {HTMLElement} taskEl
+ */
+function updateTaskColors(task, taskEl) {
+    if (!task) return;
+    if (!taskEl) return;
 
     // Добавляем кастомные цвета
     const currentColor = task.done && task.doneColor ? task.doneColor : task.color;
@@ -295,169 +343,116 @@ export async function renderTask(task, container) {
             taskEl.style.setProperty('--task-done-bg-color', `rgba(${doneRgb.r}, ${doneRgb.g}, ${doneRgb.b}, 0.15)`);
         }
     }
+}
 
-    // Добавляем чекбокс
-    if (!task.isInfo) {
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = task.done;
-        checkbox.onclick = (e) => e.stopPropagation();
-        taskHeader.appendChild(checkbox);
-    }
-
-    // Добавляем контент задачи
-    const taskContent = document.createElement('div');
-    taskContent.className = 'task-content';
-
-    // Заголовок
-    const title = document.createElement('div');
-    renderLinkedText(title, task.title, 'task-title');
-    taskContent.appendChild(title);
-
-    // Описание
-    if (task.description) {
-        const descEl = document.createElement('div');
-        renderLinkedText(descEl, task.description, 'task-description');
-        taskContent.appendChild(descEl);
-    }
-
-    taskHeader.appendChild(taskContent);
-    taskEl.appendChild(taskHeader);
-
-    // Добавляем иконку повторения и информацию о сбросе
-    if (task.repeating) {
-        const repeatIcon = document.createElement('div');
-        repeatIcon.className = 'task-repeat-icon';
-        repeatIcon.innerHTML = '🔄';
-        repeatIcon.title = 'Повторяющаяся задача';
-        taskEl.appendChild(repeatIcon);
-    }
-
-    container.appendChild(taskEl);
-
-    // Добавляем контейнер для сабтасков, если они есть
-    if (task.subtasks && task.subtasks.length > 0) {
-        const subtasksContainer = document.createElement('div');
-        subtasksContainer.className = 'subtasks-container';
-
-        console.log(task, task.subtasks);
-
-        // Рендерим каждый сабтаск внутри контейнера
-        (task.subtasks || []).forEach(async subtaskId => {
-            const subtask = await findTaskById(subtaskId);
-            if (subtask) {
-                await renderTask(subtask, subtasksContainer);
-            }
-        });
-
-        taskEl.appendChild(subtasksContainer);
-    }
+/**
+ * @param {TaskData} task
+ * @param {HTMLElement} taskEl
+ */
+function fillTimeIndicators(task, taskEl) {
+    if (!task) return;
+    if (!taskEl) return;
 
     // Добавляем индикаторы времени
-    const timeIndicators = document.createElement('div');
-    timeIndicators.className = 'task-time-indicators';
 
+    let timeIndicators = Array.from(taskEl.querySelectorAll('.task-time-indicators')).find(el => el.closest('.task') === taskEl);
+
+    if (!timeIndicators) {
+        timeIndicators = document.createElement('div');
+        timeIndicators.className = 'task-time-indicators';
+        // insert after <div class="task-header">
+        taskEl.insertBefore(timeIndicators, taskEl.querySelector(':scope > .task-header + *'));
+    }
+
+    let doneTime = timeIndicators.querySelector('.task-done-time');
     // Добавляем метку времени выполнения
     if (task.done && task.doneDate) {
-        const doneTime = document.createElement('div');
-        doneTime.className = 'task-done-time';
+        if (!doneTime) {
+            doneTime = document.createElement('div');
+            doneTime.className = 'task-done-time';
+            timeIndicators.insertBefore(doneTime, timeIndicators.firstChild);
+        }
         doneTime.textContent = `✓ ${formatDateTime(task.doneDate)}`;
-        timeIndicators.appendChild(doneTime);
+    } else if (doneTime) {
+        doneTime.remove();
     }
 
+    let deadlineInfo = timeIndicators.querySelector('.task-deadline-info');
     // Добавляем информацию о дедлайне
     if (task.deadline) {
-        const deadlineInfo = document.createElement('div');
-        deadlineInfo.className = 'task-deadline-info';
-        const now = new Date();
-        const deadline = new Date(task.deadline);
-
-        if (!task.done) {
-            // Для невыполненных задач показываем оставшееся время
-            if (deadline <= now) {
-                deadlineInfo.classList.add('overdue');
-            }
-            deadlineInfo.textContent = `⌛️ ${formatDeadlineTime(deadline)}`;
-        } else {
-            // Для выполненных задач показываем точное время дедлайна
-            deadlineInfo.textContent = `⌛️ ${formatDateTime(deadline)}`;
+        if (!deadlineInfo) {
+            deadlineInfo = document.createElement('div');
+            deadlineInfo.className = 'task-deadline-info';
+            timeIndicators.appendChild(deadlineInfo);
         }
-
-        timeIndicators.appendChild(deadlineInfo);
+        fillDeadlineInfo(task, deadlineInfo);
+    } else if (deadlineInfo) {
+        deadlineInfo.remove();
     }
+
+    let resetInfo = timeIndicators.querySelector('.task-reset-info');
     // Добавляем информацию о сбросе для повторяющихся задач
-    else if (task.repeating && task.done) {
-        const resetInfo = document.createElement('div');
-        resetInfo.className = 'task-reset-info';
-        resetInfo.textContent = formatTimeLeft(task.resetTime || '00:00');
-        timeIndicators.appendChild(resetInfo);
+    if (task.repeating && task.done) {
+        if (!resetInfo) {
+            resetInfo = document.createElement('div');
+            resetInfo.className = 'task-reset-info';
+            timeIndicators.appendChild(resetInfo);
+        }
+        fillResetInfo(task, resetInfo);
+    } else if (resetInfo) {
+        resetInfo.remove();
     }
 
-    // Добавляем контейнер с индикаторами только если есть хотя бы один индикатор
-    if (timeIndicators.children.length > 0) {
-        taskEl.appendChild(timeIndicators);
+    if (timeIndicators.children.length <= 0) {
+        timeIndicators.remove();
     }
 
-    // Если есть сабтаски, добавляем кнопку сворачивания
-    if (task.subtasks && task.subtasks.length > 0) {
-        const expandToggle = document.createElement('div'); // меняем span на div
-        expandToggle.className = 'task-expand-toggle';
-        if (task.collapsed) {
-            expandToggle.classList.add('collapsed');
-        }
+    // Добавляем класс для пульсации, если есть дедлайн и он скоро
+    if (!task.done && task.deadline) {
+        const deadline = new Date(task.deadline);
+        const now = new Date();
+        const diff = deadline - now;
+        const hourInMs = 60 * 60 * 1000;
 
-        // Добавляем пустой элемент для первой колонки грида
-        const spacerLeft = document.createElement('div');
-        expandToggle.appendChild(spacerLeft);
-
-        // Добавляем контейнер для стрелки
-        const toggleArrow = document.createElement('span');
-        toggleArrow.className = 'toggle-arrow';
-        expandToggle.appendChild(toggleArrow);
-
-        // Добавляем статистику
-        const stats = getSubtasksStats(task);
-        if (stats.total > 0) {
-            const statsEl = document.createElement('div');
-            statsEl.className = 'subtasks-stats';
-            statsEl.innerHTML = `
-            <span class="stats-done">${stats.done}</span>
-            <span class="stats-separator">/</span>
-            <span class="stats-total">${stats.total}</span>
-            `;
-            expandToggle.appendChild(statsEl);
-        } else {
-            // Если нет статистики, добавляем пустой элемент для третьей колонки грида
-            const spacerRight = document.createElement('div');
-            expandToggle.appendChild(spacerRight);
-        }
-
-        expandToggle.onclick = (e) => {
-            e.stopPropagation();
-            const subtasksContainer = taskEl.querySelector('.subtasks-container');
-            if (subtasksContainer) {
-            const isExpanded = !expandToggle.classList.contains('collapsed');
-            expandToggle.classList.toggle('collapsed');
-            subtasksContainer.style.display = isExpanded ? 'none' : 'block';
-
-            // Сохраняем состояние
-            task.collapsed = isExpanded;
-            StateModule.saveState();
-            }
-        };
-        taskEl.appendChild(expandToggle);
-
-        // Устанавливаем начальное состояние контейнера сабтасков
-        const subtasksContainer = taskEl.querySelector('.subtasks-container');
-        if (subtasksContainer && task.collapsed) {
-            subtasksContainer.style.display = 'none';
+        if (diff < hourInMs || diff < 0) {
+            taskEl.classList.add('deadline-warning');
         }
     }
+}
 
-    // Добавляем обработчики событий
-    addTaskDragHandlers(taskEl);
+/**
+ * @param {TaskData} task
+ * @param {HTMLElement} container
+ */
+function fillResetInfo(task, container) {
+    if (!task?.repeating || !task?.done) return;
+    if (!container) return;
 
-    return taskEl;
+    container.textContent = formatTimeLeft(task.resetTime || '00:00');
+}
+
+/**
+ * @param {TaskData} task
+ * @param {HTMLElement} container
+ */
+function fillDeadlineInfo(task, container) {
+    if (!task?.deadline) return;
+    if (!container) return;
+
+    const now = new Date();
+    const deadline = new Date(task.deadline);
+    container.classList.remove('overdue');
+
+    if (!task.done) {
+        // Для невыполненных задач показываем оставшееся время
+        if (deadline <= now) {
+            container.classList.add('overdue');
+        }
+        container.textContent = `⌛️ ${formatDeadlineTime(deadline)}`;
+    } else {
+        // Для выполненных задач показываем точное время дедлайна
+        container.textContent = `⌛️ ${formatDateTime(deadline)}`;
+    }
 }
 
 // Добавляем константы для цветов по умолчанию
@@ -474,13 +469,17 @@ export const darkThemeTaskColors = {
 };
 
 // Функция для получения пути до задачи
-export function getTaskPath(task) {
+/**
+ *  @param {TaskData} task
+ *  @returns {Promise<string[]>}
+ **/
+export async function getTaskPath(task) {
     const path = [];
     let currentTask = task;
 
     // Собираем путь от текущей задачи до корневой
-    while (currentTask && currentTask.parentId) {
-        const parentTask = findTaskById(currentTask.parentId);
+    while (currentTask?.parentId) {
+        const parentTask = await findTaskById(currentTask.parentId);
         if (parentTask) {
             path.unshift(parentTask.title);
             currentTask = parentTask;
@@ -493,16 +492,21 @@ export function getTaskPath(task) {
 }
 
 // Функция для работы с диалогом задачи
-export function openTaskDialog(column, existingTask = null) {
+/**
+ * @param {ColumnData} column
+ * @param {TaskData | null} existingTask
+ * @returns {Promise<void>}
+ */
+export async function openTaskDialog(column, existingTask = null) {
     const dialog = document.getElementById('task-dialog');
     const form = dialog.querySelector('form');
     const titleInput = document.getElementById('task-title');
     const descriptionInput = document.getElementById('task-description');
     const insertLinkBtn = document.getElementById('insert-link-btn');
-    const board = BoardModule.getSelectedBoard();
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.textContent = existingTask ? 'Сохранить' : 'Создать';
 
-    // Сохраняем subtasks существующей задачи, чтобы не потерять их при редактировании
-    const existingSubtasks = existingTask ? existingTask.subtasks : [];
+    const board = await BoardModule.getSelectedBoard();
 
     // Обновляем заголовок и хлебные крошки
     const breadcrumbsEl = dialog.querySelector('.dialog-breadcrumbs');
@@ -511,8 +515,8 @@ export function openTaskDialog(column, existingTask = null) {
     // Формируем путь
     let breadcrumbs = [board.name, column.name];
 
-    if (existingTask && existingTask.parentId) {
-        const parentPath = getTaskPath(existingTask);
+    if (existingTask?.parentId) {
+        const parentPath = await getTaskPath(existingTask);
         breadcrumbs = breadcrumbs.concat(parentPath);
     }
 
@@ -569,7 +573,7 @@ export function openTaskDialog(column, existingTask = null) {
         const result = await new Promise(resolve => {
             linkDialog.addEventListener('close', () => {
                 resolve(linkDialog.returnValue === 'submit' ? 'submit' : 'cancel');
-            }, { once: true });
+            }, {once: true});
         });
 
         if (result === 'submit') {
@@ -589,8 +593,9 @@ export function openTaskDialog(column, existingTask = null) {
 
     // Remove event listener when dialog closes
     dialog.addEventListener('close', () => {
-        insertLinkBtn.removeEventListener('click', () => {});
-    }, { once: true });
+        insertLinkBtn.removeEventListener('click', () => {
+        });
+    }, {once: true});
 
     descriptionInput.addEventListener('input', updateLineNumbers);
     descriptionInput.addEventListener('scroll', () => {
@@ -604,15 +609,15 @@ export function openTaskDialog(column, existingTask = null) {
     // Добавляем очистку обработчиков при закрытии диалога
     dialog.addEventListener('close', () => {
         descriptionInput.removeEventListener('input', updateLineNumbers);
-        descriptionInput.removeEventListener('scroll', () => {});
+        descriptionInput.removeEventListener('scroll', () => {
+        });
         resizeObserver.disconnect();
-    }, { once: true });
+    }, {once: true});
 
     const repeatCheckbox = document.getElementById('task-repeat');
     const infoCheckbox = document.getElementById('task-info');
     const resetTimeInput = document.getElementById('reset-time');
     const resetTimeGroup = document.querySelector('.reset-time-group');
-    const submitButton = form.querySelector('button[type="submit"]');
     const deadlineGroup = document.getElementById('deadline-group');
     const deadlineEnabled = document.getElementById('task-deadline-enabled');
     const deadlineInputs = document.getElementById('deadline-inputs');
@@ -782,12 +787,10 @@ export function openTaskDialog(column, existingTask = null) {
                 `Вы уверены, что хотите удалить задачу "${existingTask.title}"?`
             );
             if (confirmed) {
-                if (deleteTask(existingTask.id)) {
-                    StateModule.saveState();
-                    RenderModule.render();
-                    dialog.close();
-                    return true;
-                }
+                await deleteTask(existingTask.id);
+                await RenderModule.render();
+                dialog.close();
+                return true;
             }
             return false;
         };
@@ -796,7 +799,7 @@ export function openTaskDialog(column, existingTask = null) {
     }
 
     // Обработчик отправки формы
-    form.onsubmit = (e) => {
+    form.onsubmit = async (e) => {
         e.preventDefault();
 
         const selectedTaskColor = taskColorsEl.querySelector('.color-option.selected')?.dataset.color;
@@ -810,37 +813,45 @@ export function openTaskDialog(column, existingTask = null) {
             }
         }
 
+        const columnTasks = await getCurrentProvider().getTasks(column.id);
+
+        /**
+         * @type {TaskData}
+         **/
         const taskData = {
-            id: existingTask ? existingTask.id : generateId(),
+            id: existingTask ? existingTask.id : generateId('ts'),
             title: titleInput.value.trim(),
             description: descriptionInput.value.trim(),
-            // Если задача информационная - сбрасываем все связанные поля
+
             done: infoCheckbox.checked ? false : (existingTask ? existingTask.done : false),
             doneDate: infoCheckbox.checked ? null : (existingTask ? existingTask.doneDate : null),
+
+            deadline: deadline,
             repeating: infoCheckbox.checked ? false : repeatCheckbox.checked,
             resetTime: infoCheckbox.checked ? null : (repeatCheckbox.checked ? resetTimeInput.value || null : null),
+
+            columnId: existingTask ? existingTask.columnId : column.id,
             parentId: existingTask ? existingTask.parentId : null,
-            subtasks: existingSubtasks,
+
             isInfo: infoCheckbox.checked,
             collapsed: existingTask ? existingTask.collapsed : false,
+
             color: selectedTaskColor,
             doneColor: infoCheckbox.checked ? null : selectedDoneColor,
-            deadline: deadline
+
+            order: existingTask ? existingTask.order : columnTasks.length
         };
 
         if (existingTask) {
             // Обновляем существующую задачу
-            const taskIndex = column.tasks.findIndex(t => t.id === existingTask.id);
-            if (taskIndex !== -1) {
-                column.tasks[taskIndex] = taskData;
-            }
+            const updatedTask = await getCurrentProvider().updateTask(existingTask.id, taskData);
+            await rerenderTask(updatedTask);
         } else {
             // Создаем новую задачу
-            column.tasks.push(taskData);
+            await getCurrentProvider().createTask(taskData);
+            await RenderModule.render();
         }
 
-        StateModule.saveState();
-        RenderModule.render();
         dialog.close();
     };
 
@@ -854,117 +865,124 @@ export function openTaskDialog(column, existingTask = null) {
 
 
 // Добавляем функцию для подсчета статистики сабтасков
-function getSubtasksStats(task) {
+/**
+ * @param {TaskData[]} subtasks
+ * @returns {{done: number, total: number}}
+ */
+function countSubtasksStats(subtasks) {
     let done = 0;
     let total = 0;
 
-    function countSubtasks(subtaskIds) {
-        subtaskIds.forEach(subtaskId => {
-            const subtask = findTaskById(subtaskId);
-            if (subtask) {
-                if (!subtask.isInfo) {
-                    total++;
-                    if (subtask.done) done++;
-                }
-                if (subtask.subtasks && subtask.subtasks.length > 0) {
-                    countSubtasks(subtask.subtasks);
-                }
-            }
-        });
+    if (!subtasks) return {done, total};
+
+    for (const subtask of subtasks) {
+        if (!subtask.isInfo) {
+            total++;
+            if (subtask.done) done++;
+        }
     }
 
-    if (task.subtasks) {
-        countSubtasks(task.subtasks);
-    }
-
-    return { done, total };
+    return {done, total};
 }
 
-
-  // Обновляем функцию проверки сброса задач
-export async function checkTasksReset() {
-    const now = new Date();
-
-    const state = await getCurrentProvider().getData();
-    (state.boards || []).forEach(async board => {
-      (board.columns || []).forEach(async col => {
-        (col.tasks || []).forEach(async task => {
-          if (task.repeating && task.done && task.doneDate) {
-            let shouldReset = false;
-
-            if (task.resetTime) {
-              // Берем дату выполнения и добавляем к ней время сброса
-              const doneDate = new Date(task.doneDate);
-              const [hours, minutes] = task.resetTime.split(':');
-              const resetTime = new Date(doneDate);
-              resetTime.setHours(hours, minutes, 0, 0);
-
-              // Если время сброса меньше времени выполнения - переносим на следующий день
-              if (resetTime <= doneDate) {
-                resetTime.setDate(resetTime.getDate() + 1);
-              }
-
-              shouldReset = now >= resetTime;
-            } else {
-              // Если время не задано, сброс в начале следующего дня
-              const doneDate = new Date(task.doneDate);
-              const nextDay = new Date(doneDate);
-              nextDay.setDate(nextDay.getDate() + 1);
-              nextDay.setHours(0, 0, 0, 0);
-              shouldReset = now >= nextDay;
-            }
-
-            if (shouldReset) {
-              task.done = false;
-              task.doneDate = null;
-
-              await getCurrentProvider().updateTask(task.id, { done: false, doneDate: null });
-              rerenderTask(task.id);
-            }
-          }
-        });
-      });
+// Обновляем функцию проверки сброса задач
+export async function refreshTasks() {
+    /** @type {TaskData[]} */
+    const allTasks = await getCurrentProvider().getData().then(data => {
+        return data.tasks || [];
     });
+
+    const now = new Date();
+    allTasks.map(async task => {
+        await refreshTask(task, now).catch(err => console.error(err));
+    });
+}
+
+/**
+ *  @param {TaskData} task
+ *  @param {Date} now
+ **/
+async function refreshTask(task, now) {
+    const taskEl = document.querySelector(`.task[data-task-id="${task.id}"]`);
+    if (!taskEl) return;
+
+    let shouldReset = false;
+
+    if (task.repeating && task.done && task.doneDate) {
+
+        if (task.resetTime) {
+            // Берем дату выполнения и добавляем к ней время сброса
+            const doneDate = new Date(task.doneDate);
+            const [hours, minutes] = task.resetTime.split(':');
+            const resetTime = new Date(doneDate);
+            resetTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+            // Если время сброса меньше времени выполнения - переносим на следующий день
+            if (resetTime <= doneDate) {
+                resetTime.setDate(resetTime.getDate() + 1);
+            }
+
+            shouldReset = now >= resetTime;
+        } else {
+            // Если время не задано, сброс в начале следующего дня
+            const doneDate = new Date(task.doneDate);
+            const nextDay = new Date(doneDate);
+            nextDay.setDate(nextDay.getDate() + 1);
+            nextDay.setHours(0, 0, 0, 0);
+            shouldReset = now >= nextDay;
+        }
+
+        if (shouldReset) {
+            /** @type {TaskData} */
+            task = await getCurrentProvider().updateTask(task.id, {done: false, doneDate: null});
+            await rerenderTask(task).catch(err => console.error(err));
+        }
+    }
+
+    if (!shouldReset && (task.deadline && !task.done || task.done && task.repeating)) {
+        fillTimeIndicators(task, taskEl);
+        updateTaskColors(task, taskEl);
+    }
 }
 
 // Функция для перерисовки конкретной задачи
-function rerenderTask(taskId) {
-    const taskEl = document.querySelector(`div[data-task-id="${taskId}"]`);
+/** @param {TaskData} task */
+async function rerenderTask(task) {
+    const taskEl = document.querySelector(`.task[data-task-id="${task.id}"]`);
     if (!taskEl) return;
 
-    // Находим задачу в данных
-    let task = null;
-    const board = BoardModule.getSelectedBoard();
-    if (!board) return;
-
-    board.columns.forEach(col => {
-      const foundTask = col.tasks.find(t => t.id === taskId);
-      if (foundTask) task = foundTask;
-    });
-
-    if (!task) return;
-
     // Обновляем состояние карточки
-    taskEl.className = 'task' + (task.done ? ' done' : '');
+    taskEl.className = 'task' + (task.done ? ' done' : '') + (task.parentId ? ' subtask' : '') + (task.isInfo ? ' info' : '');
+
+    let taskContent = Array.from(taskEl.querySelectorAll('.task-content')).find(el => el.closest('.task') === taskEl);
+    if (!taskContent) {
+        console.error('Task content not found', taskEl);
+        return;
+    }
+
+    // Обновляем заголовок
+    const title = taskContent.querySelector('.task-title');
+    if (title) {
+        renderLinkedText(title, task.title, 'task-title');
+    }
+
+    // Обновляем описание
+    if (task.description) {
+        let description = taskContent.querySelector('.task-description');
+        if (!description) {
+            description = document.createElement('div');
+            description.className = 'task-description';
+            taskContent.appendChild(description);
+        }
+        renderLinkedText(description, task.description, 'task-description');
+    } else {
+        const description = taskEl.querySelector('.task-description');
+        if (description) description.remove();
+    }
 
     // Обновляем чекбокс
-    const checkbox = taskEl.querySelector('input[type="checkbox"]');
-    if (checkbox) checkbox.checked = task.done;
+    updateTaskCheckbox(task, taskEl);
 
-    // Обновляем информацию о времени сброса
-    const resetInfo = taskEl.querySelector('.task-reset-info');
-    if (resetInfo) resetInfo.remove();
-
-    if (task.repeating && task.done) {
-      const newResetInfo = document.createElement('div');
-      newResetInfo.className = 'task-reset-info';
-
-      if (task.resetTime) {
-        newResetInfo.textContent = formatTimeLeft(task.resetTime);
-      } else {
-        newResetInfo.textContent = formatTimeLeft('00:00');
-      }
-
-      taskEl.appendChild(newResetInfo);
-    }
+    fillTimeIndicators(task, taskEl);
+    updateTaskColors(task, taskEl);
 }

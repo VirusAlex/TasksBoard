@@ -1,60 +1,32 @@
-import { generateId, formatDateTime, formatTimeLeft, formatDeadlineTime } from './utils.js';
 import { showConfirmDialog } from './modules/uiComponents.js';
-import * as DragDrop from './modules/dragAndDrop.js';
-import * as TaskManager from './modules/taskModule.js';
-import * as ColumnManager from './modules/columnModule.js';
-import * as BoardManager from './modules/boardModule.js';
+import * as TaskModule from './modules/taskModule.js';
+import * as BoardModule from './modules/boardModule.js';
 import * as Calendar from './modules/calendarModule.js';
-import * as StateModule from './modules/stateModule.js';
 import * as RenderModule from './modules/renderModule.js';
+import * as ColumnModule from './modules/columnModule.js';
 import { initializeDataProvider } from './data/dataProvider.js';
+import './modules/types.js';
 
 async function initApp(config = { type: 'local' }) {
   try {
     // Initialize data provider
     await initializeDataProvider(config);
 
-    // Initialize state
-    await StateModule.initStateModule();
+    // // Initialize state
+    // await StateModule.initStateModule();
+    await BoardModule.initBoardModule();
 
     // Get elements
     const boardsEl = document.getElementById('boards');
     const addBoardBtn = document.getElementById('add-board-btn');
-    const columnsEl = document.getElementById('columns');
     const addColumnBtn = document.getElementById('add-column-btn');
 
-    columnsEl.addEventListener('dragover', (e) => {
-      const draggingCol = document.querySelector('.column.dragging');
-      if (!draggingCol) return;
-      e.preventDefault();
-      e.stopPropagation();
-      DragDrop.showColumnDropIndicator(e, draggingCol);
-    });
-
-    columnsEl.addEventListener('drop', (e) => {
-      DragDrop.handleColumnDrop(e);
-    });
-
-    // Проверка повторяющихся задач: если дата сегодня > дата выполнения — снять отметку
-    // Считаем, что "новый день" — это если сегодняшняя дата (YYYY-MM-DD) изменилась.
-    let today = new Date().toISOString().slice(0,10);
-    StateModule.getState().boards.forEach(board => {
-      board.columns.forEach(col => {
-        col.tasks.forEach(task => {
-          if (task.repeating && task.done && task.doneDate && task.doneDate < today) {
-            task.done = false;
-            task.doneDate = null;
-          }
-        });
-      });
-    });
-
     addBoardBtn.addEventListener('click', () => {
-      BoardManager.openBoardDialog();
+      BoardModule.openBoardDialog();
     });
 
     addColumnBtn.addEventListener('click', () => {
-      ColumnManager.openColumnDialog();
+      ColumnModule.openColumnDialog();
     });
 
     await RenderModule.render();
@@ -80,8 +52,8 @@ async function initApp(config = { type: 'local' }) {
     });
 
     // Запускаем проверку при загрузке и каждую минуту
-    TaskManager.checkTasksReset();
-    setInterval(TaskManager.checkTasksReset, 1000);
+    await TaskModule.refreshTasks();
+    setInterval(TaskModule.refreshTasks, 1000);
 
     // Добавляем после остальных обработчиков
     const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -197,7 +169,7 @@ async function initApp(config = { type: 'local' }) {
       const li = e.target.closest('li');
       if (!li) return;
 
-      await BoardManager.setSelectedBoard(li.dataset.boardId);
+      await BoardModule.setSelectedBoard(li.dataset.boardId);
 
       if (window.innerWidth <= 768) {
           document.body.classList.remove('sidebar-open');

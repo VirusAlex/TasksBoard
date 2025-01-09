@@ -1,8 +1,8 @@
 // Модуль для работы с календарным представлением
 import { formatDateTime, formatTimeLeft, formatDeadlineTime } from '../utils.js';
 import { renderLinkedText, hexToRGB } from './uiComponents.js';
-import * as TaskManager from './taskModule.js';
-import * as BoardManager from './boardModule.js';
+import * as TaskModule from './taskModule.js';
+import * as BoardModule from './boardModule.js';
 import * as StateModule from './stateModule.js';
 import * as RenderModule from './renderModule.js';
 
@@ -153,7 +153,7 @@ export function addDayToCalendar(container, dayNum, isOtherMonth, fullDate, isMa
             (!task.done && new Date(task.deadline) < today ? ' overdue' : '');
 
         // Устанавливаем цвет маркера в соответствии с цветом задачи
-        const currentColor = (task.done && task.doneColor ? task.doneColor : task.color) || task.info && TaskManager.defaultTaskColors.info || task.done && TaskManager.defaultTaskColors.done || TaskManager.defaultTaskColors.pending;
+        const currentColor = (task.done && task.doneColor ? task.doneColor : task.color) || task.info && TaskModule.defaultTaskColors.info || task.done && TaskModule.defaultTaskColors.done || TaskModule.defaultTaskColors.pending;
         if (currentColor) {
           marker.style.background = currentColor;
         }
@@ -301,9 +301,9 @@ export function addDayToCalendar(container, dayNum, isOtherMonth, fullDate, isMa
           }
 
           // Добавляем обработчик клика для открытия задачи
-          taskEl.onclick = (e) => {
+          taskEl.onclick = async (e) => {
             e.stopPropagation();
-            openTaskFromCalendar(task);
+            await openTaskFromCalendar(task);
           };
 
           taskListContent.appendChild(taskEl);
@@ -341,18 +341,18 @@ export function getTasksForDate(date) {
     return tasks;
 }
 
-function openTaskFromCalendar(task) {
+async function openTaskFromCalendar(task) {
     // Переключаемся на нужную доску
     StateModule.setState({...StateModule.getState(), selectedBoardId: task.boardId});
 
     // Находим колонку
-    const board = BoardManager.getSelectedBoard();
+    const board = BoardModule.getSelectedBoard();
     const column = board.columns.find(col => col.id === task.columnId);
 
     if (column) {
       // Переключаемся на вид досок и открываем диалог задачи
       showBoardView();
-      TaskManager.openTaskDialog(column, task);
+      await TaskModule.openTaskDialog(column, task);
     }
   }
 

@@ -1,6 +1,6 @@
    // Генерация простых ID
-export function generateId() {
-    return 'id-' + Math.random().toString(36).substr(2, 9);
+export function generateId(prefix = 'id') {
+    return prefix + '-' + Math.random().toString(36).substr(2, 9);
 }
   
   // Функция для форматирования даты и времени

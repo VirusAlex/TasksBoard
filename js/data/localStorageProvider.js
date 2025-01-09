@@ -14,6 +14,7 @@ export class LocalStorageProvider extends DataProvider {
         await this.invalidateCache();
     }
 
+    /** @returns {Promise<AppData>} */
     async getData() {
         const data = localStorage.getItem('tasksBoard');
         if (!data) {

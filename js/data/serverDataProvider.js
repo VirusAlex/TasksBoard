@@ -31,6 +31,7 @@ export class ServerDataProvider extends DataProvider {
         }
     }
 
+    /** @returns {Promise<AppData>} */
     async getData() {
         try {
             const data = await this._fetchWithAuth('/api/data');

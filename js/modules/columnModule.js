@@ -1,8 +1,7 @@
 // Модуль для работы с колонками
-import { generateId } from '../utils.js';
 import { showConfirmDialog } from './uiComponents.js';
-import * as BoardManager from './boardModule.js';
-import * as TaskManager from './taskModule.js';
+import * as BoardModule from './boardModule.js';
+import * as TaskModule from './taskModule.js';
 import * as DragDrop from './dragAndDrop.js';
 import * as RenderModule from './renderModule.js';
 import { getCurrentProvider } from '../data/dataProvider.js';
@@ -10,22 +9,35 @@ import { getCurrentProvider } from '../data/dataProvider.js';
 // Сохраняем ссылки на обработчики событий для каждой колонки
 const columnHandlers = new Map();
 
+/**
+ * @param {string} columnId
+ * @returns {Promise<ColumnData | null>}
+ */
+export async function findColumnById(columnId) {
+    return await getCurrentProvider().getData().then(data => {
+        return data.columns.find(column => column.id === columnId) || null;
+    });
+}
+
 // Вспомогательные функции
-export function getColumnStats(column) {
-    if (!column.tasks) return { total: 0, done: 0 };
+/** @param {ColumnData} column */
+export async function getColumnStats(column) {
+    /** @type {TaskData[]} */
+    const tasks = await getCurrentProvider().getTasks(column.id);
+
+    if (tasks?.length === 0) return { total: 0, done: 0 };
 
     const stats = {
         total: 0,
         done: 0
     };
 
-    (column.tasks || []).forEach(task => {
+    for (const task of tasks) {
         if (!task.isInfo && !task.parentId) { // Считаем только основные задачи
             stats.total++;
             if (task.done) stats.done++;
         }
-    });
-
+    }
     return stats;
 }
 
@@ -53,6 +65,7 @@ function cleanupColumnHandlers(columnId) {
 }
 
 // Функция рендеринга колонки
+/** @param {ColumnData} column */
 export async function renderColumn(column) {
     // Очищаем старые обработчики для этой колонки
     cleanupColumnHandlers(column.id);
@@ -70,17 +83,18 @@ export async function renderColumn(column) {
     titleEl.textContent = column.name;
     headerEl.appendChild(titleEl);
 
-    const stats = getColumnStats(column);
-    if (stats.total > 0) {
-        const statsEl = document.createElement('div');
-        statsEl.className = 'column-stats';
-        statsEl.innerHTML = `
+   getColumnStats(column).then(stats => {
+        if (stats.total > 0) {
+            const statsEl = document.createElement('div');
+            statsEl.className = 'column-stats';
+            statsEl.innerHTML = `
             <span class="stats-done">${stats.done}</span>
             <span class="stats-separator">/</span>
             <span class="stats-total">${stats.total}</span>
         `;
-        headerEl.appendChild(statsEl);
-    }
+            headerEl.appendChild(statsEl);
+        }
+    });
 
     colEl.appendChild(headerEl);
 
@@ -104,6 +118,7 @@ export async function renderColumn(column) {
 
     const dragEndHandler = () => {
         colEl.classList.remove('dragging');
+        if (DragDrop.isProcessingDrop) return;
         DragDrop.removeAllDropIndicators();
     };
 
@@ -152,17 +167,22 @@ export async function renderColumn(column) {
         dropHandler
     });
 
+    const tasksContainer = document.createElement('div');
+    colEl.appendChild(tasksContainer);
+
     // Рендерим задачи
-    (column.tasks || [])
-        .filter(task => !task.parentId) // Только задачи верхнего уровня
-        .forEach(async task => await TaskManager.renderTask(task, colEl));
+    getCurrentProvider().getTasks(column.id).then(async tasks => {
+        for (const task of tasks) {
+            await TaskModule.renderTask(task, tasksContainer);
+        }
+    });
 
     // Кнопка добавления задачи
     const addTaskBtn = document.createElement('button');
     addTaskBtn.className = 'add-btn';
     addTaskBtn.textContent = '+ Добавить задачу';
-    addTaskBtn.onclick = () => {
-        TaskManager.openTaskDialog(column);
+    addTaskBtn.onclick = async () => {
+        await TaskModule.openTaskDialog(column);
     };
     colEl.appendChild(addTaskBtn);
 
@@ -177,8 +197,8 @@ export async function openColumnDialog(existingColumn = null) {
     const submitButton = form.querySelector('button[type="submit"]');
     const titleEl = dialog.querySelector('h3');
     const deleteBtn = form.querySelector('.delete-btn');
-    const board = await BoardManager.getSelectedBoard();
 
+    const board = await BoardModule.getSelectedBoard();
     if (!board) return;
 
     // Настраиваем диалог
@@ -198,10 +218,10 @@ export async function openColumnDialog(existingColumn = null) {
             `Вы уверены, что хотите удалить колонку "${existingColumn.name}" со всеми задачами?`
         );
         if (confirmed) {
-            if (await getCurrentProvider().deleteColumn(existingColumn.id)) {
-                dialog.close('deleted');
-                return true;
-            }
+            await getCurrentProvider().deleteColumn(existingColumn.id);
+            await RenderModule.render();
+            dialog.close('deleted');
+            return true;
         }
         return false;
     };
@@ -213,15 +233,16 @@ export async function openColumnDialog(existingColumn = null) {
 
         if (existingColumn) {
             await getCurrentProvider().updateColumn(existingColumn.id, { name });
+            const columnEl = document.querySelector(`.column[data-column-id="${existingColumn.id}"]`);
+            if (columnEl) {
+                const titleEl = columnEl.querySelector('.column-header h3');
+                titleEl.textContent = name;
+            }
         } else {
-            const columnData = {
-                id: generateId(),
-                name,
-                boardId: board.id,
-                order: board.columns.length
-            };
-            await getCurrentProvider().createColumn(columnData);
+            await getCurrentProvider().createColumn(name, board.id);
+            await RenderModule.render();
         }
+
         dialog.close('submit');
     };
 
@@ -232,8 +253,6 @@ export async function openColumnDialog(existingColumn = null) {
             deleteBtn.removeEventListener('click', handleDelete);
         }
         dialog.removeEventListener('close', handleClose);
-
-        await RenderModule.render();
     };
 
     // Добавляем обработчики
