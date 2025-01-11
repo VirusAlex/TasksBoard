@@ -1124,13 +1124,13 @@ body.dark-theme {
     height: 8px;
     border: 2px solid currentColor;
     border-width: 0 2px 2px 0;
-    transform: rotate(-135deg) translateY(-4px);
+    transform: rotate(-135deg) translateY(-3px) translateX(-3px);
     transition: transform 0.2s ease;
     justify-self: center;
 }
 
 .task-expand-toggle.collapsed .toggle-arrow {
-    transform: rotate(45deg) translateY(-3px);
+    transform: rotate(45deg) translateY(-1px) translateX(-1px);
 }
 
 /* Добавляем стили для статистики сабтасков */
@@ -1244,7 +1244,7 @@ body.dark-theme {
     flex-grow: 1;
 }
 
-.column-stats {
+.column-stats:not(.empty) {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1255,7 +1255,7 @@ body.dark-theme {
     border-radius: 6px;
 }
 
-.dark-theme .column-stats {
+.dark-theme .column-stats:not(.empty) {
     color: #bdc3c7;
     background: rgba(255, 255, 255, 0.1);
 }

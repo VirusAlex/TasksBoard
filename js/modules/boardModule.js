@@ -83,8 +83,7 @@ export async function renderBoard(selectedBoardId) {
 
         await Promise.all(sortedColumns.map(async column => {
             // Создаем колонку
-            const columnElement = await ColumnModule.renderColumn(column);
-            columnsContainerEl.appendChild(columnElement);
+            const columnElement = await ColumnModule.renderColumn(column, columnsContainerEl);
         }));
     });
 }

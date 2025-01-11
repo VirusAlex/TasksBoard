@@ -305,7 +305,11 @@ function updateTaskCheckbox(task, taskEl) {
                 await rerenderTask(updatedTask)
 
                 // обновляем статистику в родительской задаче или в колонке
-                await updateSubtasksStats(updatedTask.parentId);
+                if (task.parentId) {
+                    await updateSubtasksStats(task.parentId);
+                } else if (task.columnId) {
+                    await ColumnModule.updateColumnStats(task.columnId);
+                }
             };
 
             checkbox.addEventListener('change', checkboxChangeHandler);

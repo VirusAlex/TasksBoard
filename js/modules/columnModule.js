@@ -20,10 +20,10 @@ export async function findColumnById(columnId) {
 }
 
 // Вспомогательные функции
-/** @param {ColumnData} column */
-export async function getColumnStats(column) {
+/** @param {string} columnId */
+export async function getColumnStats(columnId) {
     /** @type {TaskData[]} */
-    const tasks = await getCurrentProvider().getTasks(column.id);
+    const tasks = await getCurrentProvider().getTasks(columnId);
 
     if (tasks?.length === 0) return { total: 0, done: 0 };
 
@@ -65,8 +65,11 @@ function cleanupColumnHandlers(columnId) {
 }
 
 // Функция рендеринга колонки
-/** @param {ColumnData} column */
-export async function renderColumn(column) {
+/**
+ *  @param {ColumnData} column
+ *  @param {HTMLElement} columnsContainerEl
+ **/
+export async function renderColumn(column, columnsContainerEl) {
     // Очищаем старые обработчики для этой колонки
     cleanupColumnHandlers(column.id);
 
@@ -74,29 +77,22 @@ export async function renderColumn(column) {
     colEl.className = 'column';
     colEl.dataset.columnId = column.id;
     colEl.draggable = true;
+    columnsContainerEl.appendChild(colEl);
 
     // Обновляем структуру заголовка колонки
     const headerEl = document.createElement('div');
     headerEl.className = 'column-header';
+    colEl.appendChild(headerEl);
 
     const titleEl = document.createElement('h3');
     titleEl.textContent = column.name;
     headerEl.appendChild(titleEl);
 
-   getColumnStats(column).then(stats => {
-        if (stats.total > 0) {
-            const statsEl = document.createElement('div');
-            statsEl.className = 'column-stats';
-            statsEl.innerHTML = `
-            <span class="stats-done">${stats.done}</span>
-            <span class="stats-separator">/</span>
-            <span class="stats-total">${stats.total}</span>
-        `;
-            headerEl.appendChild(statsEl);
-        }
-    });
+    const statsEl = document.createElement('div');
+    statsEl.classList.add('column-stats', 'empty');
+    headerEl.appendChild(statsEl);
 
-    colEl.appendChild(headerEl);
+    await updateColumnStats(column.id);
 
     // Создаем обработчики событий
     const dblClickHandler = async () => {
@@ -187,6 +183,27 @@ export async function renderColumn(column) {
     colEl.appendChild(addTaskBtn);
 
     return colEl;
+}
+
+export async function updateColumnStats(columnId) {
+    const columnEl = document.querySelector(`.column[data-column-id="${columnId}"]`);
+    if (!columnEl) return;
+
+    const statsEl = columnEl.querySelector('.column-stats');
+    if (!statsEl) return;
+
+    const stats = await getColumnStats(columnId);
+    if (stats.total > 0) {
+        statsEl.innerHTML = `
+        <span class="stats-done">${stats.done}</span>
+        <span class="stats-separator">/</span>
+        <span class="stats-total">${stats.total}</span>
+    `;
+        statsEl.classList.remove('empty');
+    } else {
+        statsEl.innerHTML = '';
+        statsEl.classList.add('empty');
+    }
 }
 
 // Функции для работы с диалогом колонки
