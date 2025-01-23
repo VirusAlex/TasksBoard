@@ -164,6 +164,7 @@ export async function renderColumn(column, columnsContainerEl) {
     });
 
     const tasksContainer = document.createElement('div');
+    tasksContainer.className = 'tasks-container';
     colEl.appendChild(tasksContainer);
 
     // Рендерим задачи

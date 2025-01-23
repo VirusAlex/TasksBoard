@@ -142,6 +142,7 @@ export async function renderTask(task, container) {
 
     taskEl.draggable = true;
     taskEl.dataset.taskId = task.id;
+    container.appendChild(taskEl);
 
     // Создаем header задачи
     const taskHeader = document.createElement('div');
@@ -174,23 +175,21 @@ export async function renderTask(task, container) {
         repeatIcon.className = 'task-repeat-icon';
         repeatIcon.innerHTML = '🔄';
         repeatIcon.title = 'Повторяющаяся задача';
-        taskEl.appendChild(repeatIcon);
+        taskHeader.appendChild(repeatIcon);
     }
 
-    container.appendChild(taskEl);
+    const subtasksContainer = document.createElement('div');
+    subtasksContainer.className = 'subtasks-container';
+    taskEl.appendChild(subtasksContainer);
 
     getCurrentProvider().getSubtasks(task.id).then(subtasks => {
         // Добавляем контейнер для сабтасков, если они есть
         if (subtasks?.length > 0) {
-            const subtasksContainer = document.createElement('div');
-            subtasksContainer.className = 'subtasks-container';
 
             // Рендерим каждый сабтаск внутри контейнера
             for (const subtask of subtasks) {
                 renderTask(subtask, subtasksContainer);
             }
-
-            taskEl.appendChild(subtasksContainer);
 
             // Если есть сабтаски, добавляем кнопку сворачивания
             const expandToggle = document.createElement('div'); // меняем span на div
@@ -247,7 +246,7 @@ export async function renderTask(task, container) {
     return taskEl;
 }
 
-async function updateSubtasksStats(taskId) {
+export async function updateSubtasksStats(taskId) {
     if (!taskId) return;
 
     const taskEl = document.querySelector(`.task[data-task-id="${taskId}"]`);
@@ -267,6 +266,7 @@ async function updateSubtasksStats(taskId) {
         <span class="stats-total">${stats.total}</span>
         `;
     } else {
+        statsEl.innerHTML = '';
         statsEl.classList.add('empty');
     }
 }

@@ -86,11 +86,11 @@ export function showTaskDropIndicator(e, parentEl, draggingTask) {
         // Получаем все задачи верхнего уровня в колонке
         const tasks = Array.from(colEl.querySelectorAll('.task:not(.subtask)'));
         const addTaskBtn = colEl.querySelector('.add-btn');
+        const tasksContainer = colEl.querySelector('.tasks-container');
 
-        // Если нет задач, просто добавляем индикатор перед кнопкой
+        // Если нет задач, просто добавляем индикатор в tasks-container
         if (tasks.length === 0) {
-            // Если задач нет, добавляем индикатор перед кнопкой добавления
-            colEl.insertBefore(indicator, addTaskBtn);
+            tasksContainer.appendChild(indicator);
             return;
         }
 
@@ -119,7 +119,7 @@ export function showTaskDropIndicator(e, parentEl, draggingTask) {
                 taskParent.insertBefore(indicator, closestTask.nextSibling);
             }
         } else {
-            colEl.insertBefore(indicator, addTaskBtn);
+            tasksContainer.insertBefore(indicator, addTaskBtn);
         }
     }
 }
@@ -162,18 +162,22 @@ export function removeAllDropIndicators() {
 export async function handleTaskDrop(e, container) {
     if (isProcessingDrop) return;
 
-    const draggingTask = document.querySelector('.task.dragging');
-    if (!draggingTask) return;
+    const draggedTaskEl = document.querySelector('.task.dragging');
+    if (!draggedTaskEl) return;
 
     e.preventDefault();
     e.stopPropagation();
     isProcessingDrop = true;
 
-    console.log('handleTaskDrop');
-
     try {
         /** @type {string} */
-        const draggedTaskId = draggingTask.dataset.taskId;
+        const draggedTaskId = draggedTaskEl.dataset.taskId;
+
+        /** @type {TaskData | null} */
+        const draggedTask = await TaskModule.findTaskById(draggedTaskId);
+        if (!draggedTask) throw new Error('Task not found: ' + draggedTaskId);
+        let oldParentId = draggedTask.parentId;
+        let oldColumnId = draggedTask.columnId;
 
         // Определяем тип контейнера и цели
         const isColumn = container.classList.contains('column');
@@ -181,9 +185,7 @@ export async function handleTaskDrop(e, container) {
 
         // Получаем колонку
         const colEl = isColumn ? container : container.closest('.column');
-        console.log('colEl: ', colEl.outerHTML);
         const columnId = colEl.dataset.columnId;
-        console.log('columnId: ', columnId);
 
         /** @type {ColumnData | null} */
         const column = await ColumnModule.findColumnById(columnId);
@@ -194,26 +196,18 @@ export async function handleTaskDrop(e, container) {
         const taskIndicator = colEl.querySelector('.task-drop-indicator');
         const parentTaskEl = taskIndicator?.closest('.task');
 
-        console.log('subtaskIndicator: ', subtaskIndicator);
-        console.log('taskIndicator: ', taskIndicator);
-        console.log('parentTaskEl: ', parentTaskEl);
-
         if (subtaskIndicator && targetTask) {
             // Случай 1: Создание сабтаска
             console.log('Создание сабтаска');
 
             /** @type {TaskData | null} */
-            const draggedTask = await TaskModule.findTaskById(draggedTaskId);
-            if (!draggedTask) throw new Error('Task not found: ' + draggedTaskId);
+            const newParentTask = await TaskModule.findTaskById(targetTask.dataset.taskId);
+            if (!newParentTask) throw new Error('Parent task not found: ' + targetTask.dataset.taskId);
 
-            /** @type {TaskData | null} */
-            const parentTask = await TaskModule.findTaskById(targetTask.dataset.taskId);
-            if (!parentTask) throw new Error('Parent task not found: ' + targetTask.dataset.taskId);
-
-            // Если задача перемещается в другую колонку
-            if (draggedTask.columnId && draggedTask.columnId !== column.id) {
+            // Если задача перемещается из колонки
+            if (oldColumnId) {
                 /** @type {ColumnData[]} */
-                const oldColumnTasks = await getCurrentProvider().getTasks(draggedTask.columnId);
+                const oldColumnTasks = await getCurrentProvider().getTasks(oldColumnId);
                 const newOldColumnTasks = oldColumnTasks.filter(t => t.id !== draggedTaskId);
                 await Promise.all(newOldColumnTasks.map(async (task, index) => {
                     if (task.order === index) return;
@@ -221,10 +215,10 @@ export async function handleTaskDrop(e, container) {
                 }));
             }
 
-            // Если задача перемещается в другую задачу
-            if (draggedTask.parentId && draggedTask.parentId !== parentTask.id) {
+            // Если задача перемещается из другой задачи
+            if (oldParentId && oldParentId !== newParentTask.id) {
                 /** @type {TaskData[]} */
-                const oldParentSubtasks = await getCurrentProvider().getSubtasks(draggedTask.parentId);
+                const oldParentSubtasks = await getCurrentProvider().getSubtasks(oldParentId);
                 const newOldParentSubtasks = oldParentSubtasks.filter(t => t.id !== draggedTaskId);
                 await Promise.all(newOldParentSubtasks.map(async (task, index) => {
                     if (task.order === index) return;
@@ -232,28 +226,31 @@ export async function handleTaskDrop(e, container) {
                 }));
             }
 
+            const subtasks = await getCurrentProvider().getSubtasks(newParentTask.id);
+
             /** @type {TaskData} */
             let updates = {
-                order: 0,
-                parentId: parentTask.id,
+                order: subtasks.length,
+                parentId: newParentTask.id,
                 columnId: null
             };
-            await getCurrentProvider().updateTask(draggedTask.id, updates);
+            await getCurrentProvider().updateTask(draggedTaskId, updates);
+
+            targetTask.querySelector(':scope > .subtasks-container').appendChild(draggedTaskEl);
+            await TaskModule.updateSubtasksStats(newParentTask.id);
+            await ColumnModule.updateColumnStats(oldColumnId);
+            await TaskModule.updateSubtasksStats(oldParentId);
 
         } else if (taskIndicator && parentTaskEl) {
             // Случай 2: Перемещение внутрь списка сабтасков
             console.log('Перемещение внутрь списка сабтасков');
 
             /** @type {TaskData | null} */
-            const draggedTask = await TaskModule.findTaskById(draggedTaskId);
-            if (!draggedTask) throw new Error('Task not found: ' + draggedTaskId);
-
-            /** @type {TaskData | null} */
-            const parentTask = await TaskModule.findTaskById(parentTaskEl.dataset.taskId);
-            if (!parentTask) throw new Error('Parent task not found: ' + parentTaskEl.dataset.taskId);
+            const newParentTask = await TaskModule.findTaskById(parentTaskEl.dataset.taskId);
+            if (!newParentTask) throw new Error('Parent task not found: ' + parentTaskEl.dataset.taskId);
 
             /** @type {TaskData[]} */
-            const newParentSubtasks = await getCurrentProvider().getSubtasks(parentTask.id).then(tasks => tasks.filter(t => t.id !== draggedTaskId));
+            const newParentSubtasks = await getCurrentProvider().getSubtasks(newParentTask.id).then(tasks => tasks.filter(t => t.id !== draggedTaskId));
 
             // Определяем позицию вставки
             const prevTask = taskIndicator.previousElementSibling;
@@ -265,10 +262,10 @@ export async function handleTaskDrop(e, container) {
 
             let finalIndex = nextIndex !== -1 ? nextIndex : prevIndex !== -1 ? prevIndex + 1 : newParentSubtasks.length;
 
-            // Если задача перемещается в другую колонку
-            if (draggedTask.columnId && draggedTask.columnId !== column.id) {
+            // Если задача перемещается из колонки
+            if (oldColumnId) {
                 /** @type {ColumnData[]} */
-                const oldColumnTasks = await getCurrentProvider().getTasks(draggedTask.columnId);
+                const oldColumnTasks = await getCurrentProvider().getTasks(oldColumnId);
                 const newOldColumnTasks = oldColumnTasks.filter(t => t.id !== draggedTaskId);
                 await Promise.all(newOldColumnTasks.map(async (task, index) => {
                     if (task.order === index) return;
@@ -276,10 +273,10 @@ export async function handleTaskDrop(e, container) {
                 }));
             }
 
-            // Если задача перемещается в другую задачу
-            if (draggedTask.parentId && draggedTask.parentId !== parentTask.id) {
+            // Если задача перемещается из другой задачи
+            if (oldParentId && oldParentId !== newParentTask.id) {
                 /** @type {TaskData[]} */
-                const oldParentSubtasks = await getCurrentProvider().getSubtasks(draggedTask.parentId);
+                const oldParentSubtasks = await getCurrentProvider().getSubtasks(oldParentId);
                 const newOldParentSubtasks = oldParentSubtasks.filter(t => t.id !== draggedTaskId);
                 await Promise.all(newOldParentSubtasks.map(async (task, index) => {
                     if (task.order === index) return;
@@ -295,19 +292,21 @@ export async function handleTaskDrop(e, container) {
                 /** @type {TaskData} */
                 let updates = {order: index};
                 if (task.id === draggedTaskId) {
-                    updates.parentId = parentTask.id;
+                    updates.parentId = newParentTask.id;
                     updates.columnId = null;
                 }
 
                 await getCurrentProvider().updateTask(task.id, updates);
             }));
+
+            taskIndicator.parentNode.insertBefore(draggedTaskEl, taskIndicator);
+            await TaskModule.updateSubtasksStats(newParentTask.id);
+            await ColumnModule.updateColumnStats(oldColumnId);
+            await TaskModule.updateSubtasksStats(oldParentId);
+
         } else if (taskIndicator) {
             // Случай 3: Обычное перемещение в колонку
             console.log('Обычное перемещение в колонку');
-
-            /** @type {TaskData | null} */
-            const draggedTask = await TaskModule.findTaskById(draggedTaskId);
-            if (!draggedTask) throw new Error('Task not found: ' + draggedTaskId);
 
             /** @type {TaskData[]} */
             const columnTasks = await getCurrentProvider().getTasks(column.id).then(tasks => tasks.filter(t => t.id !== draggedTaskId));
@@ -322,12 +321,11 @@ export async function handleTaskDrop(e, container) {
             if (prevTask?.dataset?.taskId === draggedTaskId || nextTask?.dataset?.taskId === draggedTaskId) return;
 
             let finalIndex = nextIndex !== -1 ? nextIndex : prevIndex !== -1 ? prevIndex + 1 : columnTasks.length;
-            console.log('finalIndex: ', finalIndex);
 
-            // Если задача перемещается в другую колонку
-            if (draggedTask.columnId && draggedTask.columnId !== column.id) {
+            // Если задача перемещается из другой колонки
+            if (oldColumnId && oldColumnId !== column.id) {
                 /** @type {ColumnData[]} */
-                const oldColumnTasks = await getCurrentProvider().getTasks(draggedTask.columnId);
+                const oldColumnTasks = await getCurrentProvider().getTasks(oldColumnId);
                 const newOldColumnTasks = oldColumnTasks.filter(t => t.id !== draggedTaskId);
                 await Promise.all(newOldColumnTasks.map(async (task, index) => {
                     if (task.order === index) return;
@@ -336,9 +334,9 @@ export async function handleTaskDrop(e, container) {
             }
 
             // Если задача раньше была сабтаском
-            if (draggedTask.parentId) {
+            if (oldParentId) {
                 /** @type {TaskData[]} */
-                const oldParentSubtasks = await getCurrentProvider().getSubtasks(draggedTask.parentId);
+                const oldParentSubtasks = await getCurrentProvider().getSubtasks(oldParentId);
                 const newOldParentSubtasks = oldParentSubtasks.filter(t => t.id !== draggedTaskId);
                 await Promise.all(newOldParentSubtasks.map(async (task, index) => {
                     if (task.order === index) return;
@@ -361,21 +359,21 @@ export async function handleTaskDrop(e, container) {
                 await getCurrentProvider().updateTask(task.id, updates);
             }));
 
-
-            // await moveTaskToColumn(draggedTaskId, columnId, finalIndex);
+            taskIndicator.parentNode.insertBefore(draggedTaskEl, taskIndicator);
+            await ColumnModule.updateColumnStats(columnId);
+            await ColumnModule.updateColumnStats(oldColumnId);
+            await TaskModule.updateSubtasksStats(oldParentId);
         }
 
-        await RenderModule.render();
+        // await RenderModule.render();
     } finally {
         isProcessingDrop = false;
-        draggingTask.classList.remove('dragging');
+        draggedTaskEl.classList.remove('dragging');
         removeAllDropIndicators();
     }
 }
 
 export async function handleColumnDrop(event) {
-    console.log('handleColumnDrop: ', new Error().stack);
-
     if (isProcessingDrop) return;
 
     const draggingCol = document.querySelector('.column.dragging');
